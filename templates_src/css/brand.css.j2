@@ -1,0 +1,310 @@
+/*
+ * {{ brand.company_short_en }} Brand CSS
+ * Source of truth: Brand Configuration
+ * Usage: <link rel="stylesheet" href="../templates/html/brand.css">
+ *
+ * ⚠️ 此文件由模板自动生成，请勿手动编辑 ⚠️
+ * 配置来源：{{ brand.company_name_cn }}
+ * 生成时间：{{ generation_time }}
+ *
+ * All brand colors are exposed as CSS custom properties.
+ * Use var(--color-primary-500) — never hard-code hex values.
+ */
+
+/* ── CSS Custom Properties (Design Tokens) ─────────────────────────────────── */
+:root {
+  /* Colors — Background (semantic layer) */
+  --color-bg-page:        {{ brand.neutral_50 }};   /* page-level bg */
+  --color-bg-neutral:     {{ brand.neutral_100 }};  /* weak section / auxiliary bg */
+  --color-bg-surface:     {{ brand.white }};        /* card / content container bg */
+
+  /* Colors — Border */
+  --color-border-default: {{ brand.neutral_200 }};  /* standard dividers & card borders */
+  --color-border-subtle:  {{ brand.neutral_100 }};  /* lighter secondary borders */
+
+  /* Colors — Text (semantic) */
+  --color-text-primary:   {{ brand.neutral_900 }};  /* headings, strong body text */
+  --color-text-secondary: {{ brand.neutral_700 }};  /* body, secondary labels */
+
+  /* Colors — Primary */
+  --color-primary-600:    {{ brand.primary_dark }};
+  --color-primary-500:    {{ brand.primary_color }};
+  --color-primary-100:    {{ brand.primary_light }};
+
+  /* Colors — Secondary */
+  --color-secondary-500:  {{ brand.secondary_color }};
+  --color-secondary-100:  {{ brand.secondary_light }};
+
+  /* Colors — Neutral */
+  --color-neutral-900:    {{ brand.neutral_900 }};
+  --color-neutral-700:    {{ brand.neutral_700 }};
+  --color-neutral-400:    {{ brand.neutral_400 }};
+  --color-neutral-200:    {{ brand.neutral_200 }};
+  --color-neutral-100:    {{ brand.neutral_100 }};
+  --color-neutral-50:     {{ brand.neutral_50 }};
+  --color-white:          {{ brand.white }};
+
+  /* Colors — Semantic */
+  --color-success:        #53AF36;
+  --color-warning:        #F3b021;
+  --color-danger:         #F12D2D;
+
+  /* Colors — Supplement */
+  --color-teal:           #3CC5CF;
+  --color-purple:         #8255E1;
+
+  /* Typography */
+  --font-cn:              "{{ brand.font_cn_primary }}", {{ brand.font_cn_fallback }}, sans-serif;
+  --font-en:              "{{ brand.font_en_primary }}", {{ brand.font_en_fallback }}, sans-serif;
+  --font-mono:            {{ brand.font_mono }};
+
+  /* Font Sizes */
+  --font-size-xs:         {{ brand.font_size_small }}pt;
+  --font-size-sm:         {{ brand.font_size_base }}pt;
+  --font-size-base:       {{ brand.font_size_base }}pt;
+  --font-size-lg:         {{ brand.font_size_large }}pt;
+  --font-size-xl:         {{ brand.font_size_h3 }}pt;
+  --font-size-2xl:        {{ brand.font_size_h2 }}pt;
+  --font-size-3xl:        {{ brand.font_size_h1 }}pt;
+  --font-size-caption:    {{ brand.font_size_small }}pt;
+
+  /* Spacing */
+  --spacing-xs:           {{ brand.spacing_xs }}mm;
+  --spacing-sm:           {{ brand.spacing_sm }}mm;
+  --spacing-md:           {{ brand.spacing_md }}mm;
+  --spacing-lg:           {{ brand.spacing_lg }}mm;
+  --spacing-xl:           {{ brand.spacing_xl }}mm;
+
+  /* Border Radius */
+  --radius-sm:            {{ brand.border_radius_sm }}mm;
+  --radius-md:            {{ brand.border_radius_md }}mm;
+  --radius-lg:            {{ brand.border_radius_lg }}mm;
+
+  /* Page Layout */
+  --page-margin-x:        {{ brand.page_margin_left }}mm;
+  --page-margin-y:        {{ brand.page_margin_top }}mm;
+}
+
+/* ── Base Styles ────────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-cn);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-page);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h1 { font-size: var(--font-size-3xl); color: var(--color-neutral-900); }
+h2 { font-size: var(--font-size-2xl); color: var(--color-neutral-900); }
+h3 { font-size: var(--font-size-xl);  color: var(--color-primary-500); }
+
+p {
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+/* ── Brand Page Layout ──────────────────────────────────────────────────────── */
+.brand-page {
+  max-width: 210mm;
+  margin: 0 auto;
+  background: var(--color-bg-surface);
+  box-shadow: 0 4px 18px rgba(14, 18, 22, .06);
+  min-height: 297mm;
+}
+
+@media screen {
+  .brand-page {
+    margin: var(--spacing-lg) auto;
+    border-radius: var(--radius-md);
+  }
+}
+
+@media print {
+  .brand-page {
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+.brand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg) var(--page-margin-x);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.brand-header__logo img {
+  height: 32px;
+  width: auto;
+}
+
+.brand-header__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+/* ── Title Block ────────────────────────────────────────────────────────────── */
+.brand-title {
+  padding: var(--spacing-xl) var(--page-margin-x);
+  text-align: center;
+}
+
+.brand-title__main {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-neutral-900);
+}
+
+.brand-title__sub {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-lg);
+  font-family: var(--font-en);
+}
+
+.brand-title__rule {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 20%,
+    var(--color-primary-500) 50%,
+    transparent 80%
+  );
+  margin: var(--spacing-lg) auto;
+  width: 60%;
+}
+
+/* ── Main Content ───────────────────────────────────────────────────────────── */
+main {
+  padding: 0 var(--page-margin-x) var(--spacing-xl);
+  min-height: 120mm;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────────── */
+.brand-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--spacing-lg) 0;
+}
+
+.brand-info-table th,
+.brand-info-table td {
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.brand-info-table th {
+  background-color: var(--color-primary-500);
+  color: var(--color-white);
+  font-weight: 600;
+}
+
+.brand-info-table tr:nth-child(even) {
+  background-color: var(--color-neutral-100);
+}
+
+/* ── Note Block ─────────────────────────────────────────────────────────────── */
+.brand-note {
+  background-color: var(--color-neutral-100);
+  border-left: 3px solid var(--color-primary-500);
+  padding: var(--spacing-md);
+  margin: var(--spacing-lg) 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* ── Divider ────────────────────────────────────────────────────────────────── */
+.brand-divider {
+  border: none;
+  height: 1px;
+  background-color: var(--color-border-default);
+  margin: var(--spacing-xl) var(--page-margin-x);
+}
+
+/* ── Signature Block ────────────────────────────────────────────────────────── */
+.brand-signature {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-lg) var(--page-margin-x);
+  align-items: end;
+}
+
+.brand-signature__line {
+  display: flex;
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+.brand-signature__label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 80px;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────────── */
+.brand-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--page-margin-x);
+  background-color: var(--color-bg-neutral);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  border-top: 1px solid var(--color-border-default);
+}
+
+.brand-footer__company {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.brand-footer__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  text-align: right;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .brand-page {
+    margin: var(--spacing-sm);
+  }
+
+  .brand-header {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    text-align: center;
+  }
+
+  .brand-signature {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .brand-footer {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    text-align: center;
+  }
+}

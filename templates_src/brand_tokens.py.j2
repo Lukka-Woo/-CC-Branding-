@@ -1,0 +1,202 @@
+"""
+Brand tokens loaded from brand configuration — single source of truth.
+Import this module instead of hard-coding any brand value.
+
+⚠️ 此文件由模板自动生成，请勿手动编辑 ⚠️
+配置来源：config/{{ config_name or 'default' }}.json
+生成时间：{{ generation_time }}
+
+Usage:
+    import scripts.brand_tokens as BT
+    color = BT.PRIMARY_500_HEX          # "{{ brand.primary_color }}"
+    rgb   = BT.PRIMARY_500_RGB          # ({{ brand.primary_color | hex_to_rgb }})
+    emu   = BT.logo_emu(width_mm=48)    # (1728000, 436320)
+"""
+
+import json, os, pathlib
+from typing import Tuple
+
+_TOKENS_PATH = pathlib.Path(__file__).parent.parent / "tokens.json"
+_ASSETS_PATH = pathlib.Path(__file__).parent.parent / "assets"
+
+# 加载基础 token 文件（用于向后兼容）
+if _TOKENS_PATH.exists():
+    with open(_TOKENS_PATH, encoding="utf-8") as _f:
+        _T = json.load(_f)
+else:
+    _T = {}  # 如果文件不存在，使用空字典
+
+# ── Company identity ──────────────────────────────────────────────────────────
+BRAND_NAME_CN  = "{{ brand.company_short_cn }}"
+BRAND_NAME_EN  = "{{ brand.company_short_en }}"
+BRAND_FULL_CN  = "{{ brand.company_name_cn }}"
+BRAND_FULL_EN  = "{{ brand.company_name_en }}"
+BRAND_TAGLINE  = _T.get("brand", {}).get("tagline", "智能科技，未来可期")
+
+# 地址信息（用于名片、证明文件等）
+COMPANY_ADDRESS_CN = "{{ brand.address_cn }}"
+COMPANY_ADDRESS_EN = "{{ brand.address_en }}"
+
+# 联系信息
+COMPANY_PHONE = "{{ brand.phone }}"
+COMPANY_EMAIL = "{{ brand.email }}"
+COMPANY_WEBSITE = "{{ brand.website }}"
+COMPANY_ICP = "{{ brand.icp_license }}"
+
+# ── Colors — hex strings ──────────────────────────────────────────────────────
+PRIMARY_500_HEX   = "{{ brand.primary_color }}"
+PRIMARY_600_HEX   = "{{ brand.primary_dark }}"
+PRIMARY_100_HEX   = "{{ brand.primary_light }}"
+SECONDARY_500_HEX = "{{ brand.secondary_color }}"
+SECONDARY_100_HEX = "{{ brand.secondary_light }}"
+
+NEUTRAL_900_HEX   = "{{ brand.neutral_900 }}"
+NEUTRAL_700_HEX   = "{{ brand.neutral_700 }}"
+NEUTRAL_400_HEX   = "{{ brand.neutral_400 }}"
+NEUTRAL_200_HEX   = "{{ brand.neutral_200 }}"
+NEUTRAL_100_HEX   = "{{ brand.neutral_100 }}"
+NEUTRAL_50_HEX    = "{{ brand.neutral_50 }}"
+WHITE_HEX         = "{{ brand.white }}"
+
+# 语义化颜色（向后兼容）
+SUCCESS_HEX       = _T.get("colors", {}).get("semantic", {}).get("success", "#53AF36")
+WARNING_HEX       = _T.get("colors", {}).get("semantic", {}).get("warning", "#F3b021")
+DANGER_HEX        = _T.get("colors", {}).get("semantic", {}).get("danger", "#F12D2D")
+
+# ── Background / Text / Border semantic tokens ────────────────────────────────
+BG_PAGE_HEX        = "{{ brand.neutral_50 }}"       # 页面背景
+BG_NEUTRAL_HEX     = "{{ brand.neutral_100 }}"      # 中性背景
+BG_SURFACE_HEX     = "{{ brand.white }}"            # 表面背景
+BORDER_DEFAULT_HEX = "{{ brand.neutral_200 }}"      # 默认边框
+BORDER_SUBTLE_HEX  = "{{ brand.neutral_100 }}"      # 微妙边框
+TEXT_PRIMARY_HEX   = "{{ brand.neutral_900 }}"      # 主要文字
+TEXT_SECONDARY_HEX = "{{ brand.neutral_700 }}"      # 次要文字
+
+# Full palette list (for compliance checking)
+BRAND_PALETTE_HEX = {
+    "primary-500":   PRIMARY_500_HEX,
+    "primary-600":   PRIMARY_600_HEX,
+    "primary-100":   PRIMARY_100_HEX,
+    "secondary-500": SECONDARY_500_HEX,
+    "secondary-100": SECONDARY_100_HEX,
+    "neutral-900":   NEUTRAL_900_HEX,
+    "neutral-700":   NEUTRAL_700_HEX,
+    "neutral-400":   NEUTRAL_400_HEX,
+    "neutral-200":   NEUTRAL_200_HEX,
+    "neutral-100":   NEUTRAL_100_HEX,
+    "neutral-50":    NEUTRAL_50_HEX,
+    "white":         WHITE_HEX,
+    "success":       SUCCESS_HEX,
+    "warning":       WARNING_HEX,
+    "danger":        DANGER_HEX,
+    # Semantic
+    "bg-page":       BG_PAGE_HEX,
+    "bg-neutral":    BG_NEUTRAL_HEX,
+    "bg-surface":    BG_SURFACE_HEX,
+    "text-primary":  TEXT_PRIMARY_HEX,
+    "text-secondary": TEXT_SECONDARY_HEX,
+    "border-default": BORDER_DEFAULT_HEX,
+}
+
+# ── Colors — RGB tuples (r, g, b) ─────────────────────────────────────────────
+def _hex_to_rgb(h: str) -> Tuple[int, int, int]:
+    h = h.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+PRIMARY_500_RGB   = _hex_to_rgb(PRIMARY_500_HEX)
+PRIMARY_600_RGB   = _hex_to_rgb(PRIMARY_600_HEX)
+PRIMARY_100_RGB   = _hex_to_rgb(PRIMARY_100_HEX)
+SECONDARY_500_RGB = _hex_to_rgb(SECONDARY_500_HEX)
+NEUTRAL_900_RGB   = _hex_to_rgb(NEUTRAL_900_HEX)
+NEUTRAL_700_RGB   = _hex_to_rgb(NEUTRAL_700_HEX)
+NEUTRAL_400_RGB   = _hex_to_rgb(NEUTRAL_400_HEX)
+NEUTRAL_200_RGB   = _hex_to_rgb(NEUTRAL_200_HEX)
+NEUTRAL_100_RGB   = _hex_to_rgb(NEUTRAL_100_HEX)
+WHITE_RGB         = _hex_to_rgb(WHITE_HEX)
+
+# ── python-docx RGBColor (lazy import so module usable without docx) ──────────
+def docx_rgb(hex_color: str):
+    from docx.shared import RGBColor
+    r, g, b = _hex_to_rgb(hex_color)
+    return RGBColor(r, g, b)
+
+# ── python-pptx RGBColor ──────────────────────────────────────────────────────
+def pptx_rgb(hex_color: str):
+    from pptx.util import Pt  # noqa
+    from pptx.dml.color import RGBColor
+    r, g, b = _hex_to_rgb(hex_color)
+    return RGBColor(r, g, b)
+
+# ── Typography ────────────────────────────────────────────────────────────────
+FONT_CN     = "{{ brand.font_cn_primary }}"
+FONT_CN_FB  = "{{ brand.font_cn_fallback }}"
+FONT_CN_WEB = "Noto Sans SC"
+FONT_EN     = "{{ brand.font_en_primary }}"
+FONT_MONO   = "{{ brand.font_mono.split(',')[0] }}"
+
+# Docx scale sizes (pt)
+FONT_H1_PT    = {{ brand.font_size_h1 }}
+FONT_H2_PT    = {{ brand.font_size_h2 }}
+FONT_H3_PT    = {{ brand.font_size_h3 }}
+FONT_BODY_PT  = {{ brand.font_size_base }}
+FONT_SMALL_PT = {{ brand.font_size_small }}
+
+FONT_H1_COLOR = NEUTRAL_900_HEX
+FONT_H2_COLOR = NEUTRAL_900_HEX
+FONT_H3_COLOR = PRIMARY_500_HEX
+
+# ── Spacing (mm) ──────────────────────────────────────────────────────────────
+PAGE_MARGIN_TOP_MM    = {{ brand.page_margin_top }}
+PAGE_MARGIN_BOTTOM_MM = {{ brand.page_margin_bottom }}
+PAGE_MARGIN_LEFT_MM   = {{ brand.page_margin_left }}
+PAGE_MARGIN_RIGHT_MM  = {{ brand.page_margin_right }}
+
+SPACING_XXS_MM = {{ brand.spacing_xs }}
+SPACING_XS_MM  = {{ brand.spacing_sm }}
+SPACING_S_MM   = {{ brand.spacing_md }}
+SPACING_M_MM   = {{ brand.spacing_lg }}
+SPACING_L_MM   = {{ brand.spacing_xl }}
+
+# ── Border radius (mm) ────────────────────────────────────────────────────────
+BORDER_RADIUS_SM_MM = {{ brand.border_radius_sm }}
+BORDER_RADIUS_MD_MM = {{ brand.border_radius_md }}
+BORDER_RADIUS_LG_MM = {{ brand.border_radius_lg }}
+
+# ── Table colors ──────────────────────────────────────────────────────────────
+TABLE_HEADER_BG  = PRIMARY_500_HEX
+TABLE_HEADER_FG  = WHITE_HEX
+TABLE_BORDER     = NEUTRAL_200_HEX
+TABLE_STRIPE_BG  = NEUTRAL_100_HEX
+
+# ── Logo paths ────────────────────────────────────────────────────────────────
+LOGO_HORIZONTAL_PRIMARY_PNG = str(_ASSETS_PATH / "{{ brand.logo_horizontal_path.split('/')[-1] }}")
+LOGO_HORIZONTAL_PRIMARY_SVG = str(_ASSETS_PATH / "logo-horizontal-primary.svg")
+LOGO_HORIZONTAL_REVERSE_PNG = None
+LOGO_STACKED_PRIMARY_PNG    = str(_ASSETS_PATH / "{{ brand.logo_stacked_path.split('/')[-1] }}")
+LOGO_STACKED_REVERSE_PNG    = str(_ASSETS_PATH / "logo-stacked-reverse.png")
+LOGO_MARK_PNG               = str(_ASSETS_PATH / "{{ brand.logo_mark_path.split('/')[-1] }}")
+
+# Decorative elements
+DECO_3_PNG = str(_ASSETS_PATH / "{{ brand.decoration_path.split('/')[-1] }}")
+
+# SVG viewBox natural ratio: 171.34 : 43.28
+LOGO_HORIZONTAL_ASPECT = 171.34 / 43.28   # ≈ 3.96
+
+def logo_emu(width_mm: float = 48.0) -> Tuple[int, int]:
+    """Return (width_emu, height_emu) for the horizontal logo at given width."""
+    w = int(width_mm * 36000)
+    h = int(width_mm / LOGO_HORIZONTAL_ASPECT * 36000)
+    return w, h
+
+
+if __name__ == "__main__":
+    print("=== Brand Tokens (Generated from Configuration) ===")
+    print(f"Company:     {BRAND_FULL_CN}")
+    print(f"Primary:     {PRIMARY_500_HEX}  rgb{PRIMARY_500_RGB}")
+    print(f"Secondary:   {SECONDARY_500_HEX}  rgb{SECONDARY_500_RGB}")
+    print(f"Font CN:     {FONT_CN}")
+    print(f"Font EN:     {FONT_EN}")
+    print(f"Margins:     {PAGE_MARGIN_LEFT_MM}mm / {PAGE_MARGIN_TOP_MM}mm")
+    print(f"Logo EMU:    {logo_emu()}")
+    print(f"Contact:     {COMPANY_PHONE} | {COMPANY_EMAIL}")
+    print(f"Website:     {COMPANY_WEBSITE}")

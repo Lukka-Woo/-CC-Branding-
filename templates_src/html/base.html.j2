@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{DOCUMENT_TITLE}} — {{ brand.company_short_cn }}</title>
+  <!--
+    {{ brand.company_short_en }} Brand HTML Template
+    Replace {{...}} placeholders with actual content.
+    Do NOT inline CSS colors — use CSS variables from brand.css.
+
+    ⚠️ 此文件由模板自动生成，请勿手动编辑 ⚠️
+    配置来源：{{ brand.company_name_cn }}
+    生成时间：{{ generation_time }}
+
+    Path note: this template assumes the output HTML lives one level
+    below the brand/ root (e.g. brand/docs/output.html).
+    If your output is at brand/ root level, change paths to:
+      href="templates/html/brand.css"
+      src="assets/logo-horizontal-primary.svg"
+  -->
+  <link rel="stylesheet" href="../templates/html/brand.css">
+  <style>
+    /* Document-specific overrides only — keep minimal */
+  </style>
+</head>
+<body lang="zh">
+
+  <div class="brand-page">
+
+    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <header class="brand-header">
+      <div class="brand-header__logo">
+        <img src="../assets/logo-horizontal-primary.svg"
+             alt="{{ brand.company_short_cn }} {{ brand.company_short_en }}"
+             height="32">
+      </div>
+      <div class="brand-header__label">{{DOCUMENT_TYPE}}</div>
+    </header>
+
+    <!-- ── Title Block ────────────────────────────────────────────────────── -->
+    <div class="brand-title">
+      <h1 class="brand-title__main">{{DOCUMENT_TITLE}}</h1>
+      <p class="brand-title__sub">{{DOCUMENT_SUBTITLE}}</p>
+      <hr class="brand-title__rule">
+    </div>
+
+    <!-- ── Main Content ───────────────────────────────────────────────────── -->
+    <main>
+
+      <!-- Example: info table
+      <table class="brand-info-table">
+        <tr><td>字段名</td><td>值</td></tr>
+      </table>
+      -->
+
+      <!-- Example: note block
+      <aside class="brand-note">
+        <p>注意事项内容...</p>
+      </aside>
+      -->
+
+    </main>
+
+    <hr class="brand-divider">
+
+    <!-- ── Signature Block ────────────────────────────────────────────────── -->
+    <section class="brand-signature">
+      <div>
+        <div class="brand-signature__line">
+          <span class="brand-signature__label">公司名称：</span>
+          <span>{{ brand.company_name_cn }}</span>
+        </div>
+        <div class="brand-signature__line">
+          <span class="brand-signature__label">授权签字：</span>
+          <span>&nbsp;</span>
+        </div>
+        <div class="brand-signature__line">
+          <span class="brand-signature__label">出具日期：</span>
+          <span>{{DATE}}</span>
+        </div>
+        <div class="brand-signature__line">
+          <span class="brand-signature__label">联系电话：</span>
+          <span>{{ brand.phone }}</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;
+                  border:1px dashed var(--color-neutral-200);
+                  border-radius:var(--radius-md);
+                  color:var(--color-neutral-400);
+                  font-size:var(--font-size-caption);">
+        （公章）
+      </div>
+    </section>
+
+    <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+    <footer class="brand-footer">
+      <div class="brand-footer__company">
+        <span>{{ brand.company_name_cn }}</span>
+        <span>{{ brand.website }} | {{ brand.email }}</span>
+      </div>
+      <div class="brand-footer__meta">
+        <span>{{ brand.icp_license }}</span>
+        <span>{{FOOTER_NOTE}}</span>
+      </div>
+    </footer>
+
+  </div>
+
+</body>
+</html>
