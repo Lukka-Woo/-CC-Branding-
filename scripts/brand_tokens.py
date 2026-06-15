@@ -19,11 +19,19 @@ with open(_TOKENS_PATH, encoding="utf-8") as _f:
     _T = json.load(_f)
 
 # ── Company identity ──────────────────────────────────────────────────────────
+# 修改公司全称时，请同步更新：
+# - templates/html/base.html (2处)
+# - templates/pdf/brand.css (1处)
+# - templates/ppt/gen_brand_master.py (2处)
 BRAND_NAME_CN  = "未来方舟"
 BRAND_NAME_EN  = "ArktechX"
-BRAND_FULL_CN  = "未来方舟（上海）科技有限公司"
-BRAND_FULL_EN  = "ArktechX （Shanghai）Technology Co. Ltd."
+BRAND_FULL_CN  = "上海未来方舟智能科技有限公司"
+BRAND_FULL_EN  = "Shanghai ArktechX Intelligent Technology Co., Ltd."
 BRAND_TAGLINE  = _T["brand"]["tagline"]
+
+# 地址信息（用于名片、证明文件等）
+COMPANY_ADDRESS_CN = "上海市浦河创业中心（桂平路）302栋"
+COMPANY_ADDRESS_EN = "Building 302, Puhe Entrepreneurship Center (Guiping Road), Shanghai"
 
 # ── Colors — hex strings ──────────────────────────────────────────────────────
 PRIMARY_500_HEX   = _T["colors"]["primary"]["500"]

@@ -338,6 +338,61 @@ python3 tests/test_compliance.py projects/{name}/docs/output.html --format html
 
 ---
 
+## 品牌信息自定义指南
+
+### 修改公司信息（适用于其他公司部署）
+
+品牌信息集中管理在 `scripts/brand_tokens.py`，修改时按以下顺序：
+
+#### 1. 修改核心配置文件
+```python
+# scripts/brand_tokens.py 第 21-34 行
+BRAND_NAME_CN  = "你的公司简称"
+BRAND_NAME_EN  = "YourCompany"
+BRAND_FULL_CN  = "你的公司全称有限公司"
+BRAND_FULL_EN  = "Your Company Full Name Co., Ltd."
+
+# 地址信息
+COMPANY_ADDRESS_CN = "你的公司地址"
+COMPANY_ADDRESS_EN = "Your Company Address"
+```
+
+#### 2. 同步更新模板文件
+修改 `brand_tokens.py` 后，需手动更新以下模板中的硬编码文本：
+
+- `templates/html/base.html`：第 78、100 行的公司名称
+- `templates/pdf/brand.css`：第 22 行的页眉公司名称
+- `templates/ppt/gen_brand_master.py`：第 250、259 行的公司名称
+
+#### 3. Logo 文件替换
+将新公司的 Logo 文件放入 `assets/` 目录，保持文件名一致：
+- `logo-horizontal-primary.png` / `.svg`
+- `logo-stacked-primary.png`
+- `logo-mark-primary.png`
+
+#### 4. 验证一致性
+```bash
+# 生成测试文档检查
+python3 projects/sample/jobs/test_brand_consistency.py
+
+# 确保所有格式显示相同的公司名称
+ls projects/sample/docs/test_*
+```
+
+### 配置检查清单
+
+使用此清单确保品牌信息在所有输出格式中保持一致：
+
+- [ ] `brand_tokens.py` 中的公司信息已更新
+- [ ] DOCX 文档页眉页脚显示新公司名称
+- [ ] HTML 模板 Footer 显示新公司名称
+- [ ] PDF 页眉显示新公司名称
+- [ ] PPT 封面页显示新公司名称
+- [ ] 证明文件签名块显示新公司名称
+- [ ] 所有 Logo 文件已替换为新公司 Logo
+
+---
+
 ## 禁止事项
 
 | 禁止 | 原因 |

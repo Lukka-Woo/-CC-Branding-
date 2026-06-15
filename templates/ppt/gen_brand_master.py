@@ -247,7 +247,7 @@ def slide_01_cover_dark(prs: BrandPptx):
     prs.add_cover(
         title="能碳智能管理平台",
         subtitle="Industrial Carbon & Energy Management Platform",
-        tagline="未来方舟（上海）科技有限公司  ·  ArktechX"
+        tagline="上海未来方舟智能科技有限公司  ·  ArktechX"
     )
 
 
@@ -256,7 +256,7 @@ def slide_02_cover_light(prs: BrandPptx):
     prs.add_cover_light(
         title="能碳智能管理平台",
         subtitle="Industrial Carbon & Energy Management Platform",
-        date_or_meta="未来方舟（上海）科技有限公司  ·  2025",
+        date_or_meta="上海未来方舟智能科技有限公司  ·  2025",
     )
 
 
