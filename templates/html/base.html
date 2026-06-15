@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{DOCUMENT_TITLE}} — 未来方舟</title>
+  <!--
+    ArktechX Brand HTML Template
+    Replace {{...}} placeholders with actual content.
+    Do NOT inline CSS colors — use CSS variables from brand.css.
+
+    Path note: this template assumes the output HTML lives one level
+    below the brand/ root (e.g. brand/docs/output.html).
+    If your output is at brand/ root level, change paths to:
+      href="templates/html/brand.css"
+      src="assets/logo-horizontal-primary.svg"
+  -->
+  <link rel="stylesheet" href="../templates/html/brand.css">
+  <style>
+    /* Document-specific overrides only — keep minimal */
+  </style>
+</head>
+<body lang="zh">
+
+  <div class="brand-page">
+
+    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <header class="brand-header">
+      <div class="brand-header__logo">
+        <img src="../assets/logo-horizontal-primary.svg"
+             alt="未来方舟 ArktechX"
+             height="32">
+      </div>
+      <div class="brand-header__label">{{DOCUMENT_TYPE}}</div>
+    </header>
+
+    <!-- ── Title Block ────────────────────────────────────────────────────── -->
+    <div class="brand-title">
+      <h1 class="brand-title__main">{{DOCUMENT_TITLE}}</h1>
+      <p class="brand-title__sub">{{DOCUMENT_SUBTITLE}}</p>
+      <hr class="brand-title__rule">
+    </div>
+
+    <!-- ── Main Content ───────────────────────────────────────────────────── -->
+    <main>
+
+      <!-- Example: info table
+      <table class="brand-info-table">
+        <tr><td>字段名</td><td>值</td></tr>
+      </table>
+      -->
+
+      <!-- Example: note block
+      <div class="brand-note">
+        <span class="brand-note__label">注：</span>
+        注释内容
+      </div>
+      -->
+
+      <!-- Example: data table
+      <table class="brand-table">
+        <thead><tr><th>列 1</th><th>列 2</th></tr></thead>
+        <tbody><tr><td>数据</td><td>数据</td></tr></tbody>
+      </table>
+      -->
+
+      {{MAIN_CONTENT}}
+
+    </main>
+
+    <hr class="brand-divider">
+
+    <!-- ── Signature Block ────────────────────────────────────────────────── -->
+    <section class="brand-signature">
+      <div>
+        <div class="brand-signature__line">
+          <span class="brand-signature__label">公司名称：</span>
+          <span>未来方舟（上海）科技有限公司</span>
+        </div>
+        <div class="brand-signature__line">
+          <span class="brand-signature__label">授权签字：</span>
+          <span>&nbsp;</span>
+        </div>
+        <div class="brand-signature__line">
+          <span class="brand-signature__label">出具日期：</span>
+          <span>{{DATE}}</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;
+                  border:1px dashed var(--color-neutral-200);
+                  border-radius:var(--radius-md);
+                  color:var(--color-neutral-400);
+                  font-size:var(--font-size-caption);">
+        （公章）
+      </div>
+    </section>
+
+    <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+    <footer class="brand-footer">
+      <span>未来方舟（上海）科技有限公司</span>
+      <span>{{FOOTER_NOTE}}</span>
+    </footer>
+
+  </div>
+
+</body>
+</html>

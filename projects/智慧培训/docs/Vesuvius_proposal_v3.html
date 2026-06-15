@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业培训平台功能增强建设建议书 · Vesuvius V3.0</title>
+<link rel="stylesheet" href="../../../templates/html/brand.css">
+<style>
+/* ── Print / PDF ──────────────────────────────────────────────────────────── */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  font-family: var(--font-cn);
+  font-size: 13px;
+  color: var(--color-neutral-900);
+}
+
+/* ── Page utility ─────────────────────────────────────────────────────────── */
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+  background: #fff;
+}
+
+.page:last-child { page-break-after: auto; }
+
+/* ── COVER PAGE ───────────────────────────────────────────────────────────── */
+.cover {
+  width: 210mm;
+  height: 297mm;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  background: #fff;
+}
+
+/* Left accent bar — brand green, full height, ~10mm */
+.cover__bar {
+  width: 10mm;
+  background: var(--color-primary-500);
+  flex-shrink: 0;
+}
+
+/* Content area to the right of the bar */
+.cover__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 18mm 18mm 16mm 14mm;
+}
+
+/* Top row: document type label + confidential */
+.cover__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0;
+}
+
+.cover__doc-type {
+  font-family: var(--font-en);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--color-neutral-400);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.cover__confidential {
+  font-family: var(--font-cn);
+  font-size: 9px;
+  color: var(--color-neutral-400);
+  font-style: italic;
+}
+
+/* Thin green rule under meta row */
+.cover__rule {
+  height: 1.5px;
+  background: var(--color-primary-500);
+  margin: 10px 0 0;
+  border: none;
+}
+
+/* Client logo block — Vesuvius, as illustration */
+.cover__client-logo {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 26mm 0 0;
+}
+
+.cover__client-logo img {
+  height: 52px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Title block */
+.cover__title-block {
+  margin-top: 14px;
+}
+
+.cover__title {
+  font-family: var(--font-cn);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+
+.cover__subtitle {
+  font-family: var(--font-en);
+  font-size: 11px;
+  color: var(--color-neutral-400);
+  margin: 0 0 14px;
+  letter-spacing: 0.02em;
+}
+
+/* Scope tag strip */
+.cover__scope {
+  display: inline-block;
+  background: var(--color-neutral-100);
+  padding: 5px 10px;
+  font-size: 9.5px;
+  color: var(--color-neutral-700);
+  margin-bottom: 0;
+}
+
+/* Spacer that pushes address block down */
+.cover__spacer { flex: 1; }
+
+/* ── Address block (bottom section) ──────────────────────────────────────── */
+.cover__address {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-top: 1px solid var(--color-neutral-200);
+  padding-top: 14px;
+  gap: 16px;
+}
+
+.cover__addr-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cover__addr-col--right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.cover__addr-label {
+  font-family: var(--font-en);
+  font-size: 8px;
+  color: var(--color-neutral-400);
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+.cover__addr-company {
+  font-family: var(--font-cn);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  line-height: 1.4;
+}
+
+.cover__addr-detail {
+  font-family: var(--font-cn);
+  font-size: 9.5px;
+  color: var(--color-neutral-700);
+  line-height: 1.5;
+}
+
+.cover__addr-logo {
+  margin-top: 4px;
+}
+
+.cover__addr-logo img {
+  height: 22px;
+  width: auto;
+}
+
+/* Date */
+.cover__date {
+  text-align: right;
+  font-family: var(--font-en);
+  font-size: 9px;
+  color: var(--color-neutral-400);
+  margin-top: 12px;
+}
+
+/* ── TOC PAGE ─────────────────────────────────────────────────────────────── */
+.toc-page {
+  padding: 22mm 22mm 22mm 22mm;
+}
+
+.toc-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  margin: 0 0 10px;
+}
+
+.toc-rule {
+  height: 2px;
+  background: var(--color-primary-500);
+  border: none;
+  margin: 0 0 28px;
+  width: 100%;
+}
+
+.toc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.toc-table tr.toc-main td {
+  background: var(--color-neutral-100);
+  padding: 7px 10px;
+  vertical-align: top;
+}
+
+.toc-table tr.toc-sub td {
+  padding: 4px 10px 4px 22px;
+  vertical-align: top;
+}
+
+.toc-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary-500);
+  width: 18px;
+  white-space: nowrap;
+}
+
+.toc-name {
+  font-size: 11px;
+  color: var(--color-neutral-900);
+  font-weight: 600;
+  width: 140px;
+}
+
+.toc-sub-name {
+  font-size: 10px;
+  color: var(--color-neutral-700);
+  font-weight: 400;
+  width: 140px;
+}
+
+.toc-desc {
+  font-size: 9px;
+  color: var(--color-neutral-400);
+}
+
+/* ── CONTENT PAGES ────────────────────────────────────────────────────────── */
+.content-page {
+  padding: 20mm 22mm;
+  box-sizing: border-box;
+}
+
+/* Running header (all pages except cover+toc) */
+.running-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-primary-500);
+  margin-bottom: 22px;
+}
+
+.running-header__logo img { height: 22px; width: auto; }
+
+.running-header__label {
+  font-size: 8px;
+  color: var(--color-neutral-400);
+  letter-spacing: 0.06em;
+  font-style: italic;
+}
+
+/* Running footer */
+.running-footer {
+  margin-top: 28px;
+  border-top: 1px solid var(--color-neutral-200);
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+  font-size: 8px;
+  color: var(--color-neutral-400);
+}
+
+/* Chapter heading */
+.ch1 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  margin: 24px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1.5px solid var(--color-neutral-200);
+}
+
+.ch2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-900);
+  margin: 18px 0 8px;
+}
+
+.ch3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary-500);
+  margin: 14px 0 6px;
+}
+
+/* Body paragraph */
+.body-p {
+  font-size: 11px;
+  color: var(--color-neutral-700);
+  line-height: 1.7;
+  margin: 0 0 10px;
+  text-indent: 2em;
+}
+
+/* Bullet list */
+.blist { list-style: none; padding: 0; margin: 0 0 10px; }
+.blist li {
+  font-size: 11px;
+  color: var(--color-neutral-700);
+  line-height: 1.6;
+  padding: 2px 0 2px 20px;
+  position: relative;
+}
+.blist li::before {
+  content: '•';
+  position: absolute;
+  left: 6px;
+  color: var(--color-primary-500);
+  font-weight: 700;
+}
+
+/* Note block */
+.note {
+  border-left: 4px solid var(--color-primary-500);
+  background: var(--color-neutral-100);
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-size: 10.5px;
+  color: var(--color-neutral-700);
+  line-height: 1.6;
+}
+
+.note__label {
+  font-weight: 700;
+  color: var(--color-primary-500);
+  margin-right: 4px;
+}
+
+/* Info table */
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 11px;
+}
+
+.info-table td {
+  padding: 6px 12px;
+  border: 1px solid var(--color-neutral-200);
+  vertical-align: middle;
+}
+
+.info-table td:first-child {
+  width: 26%;
+  font-weight: 600;
+  text-align: center;
+  color: var(--color-neutral-900);
+}
+
+.info-table tr:nth-child(odd) td:first-child  { background: var(--color-primary-100); }
+.info-table tr:nth-child(even) td:first-child { background: var(--color-neutral-100); }
+
+/* Data table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 10.5px;
+}
+
+.data-table th {
+  background: var(--color-primary-500);
+  color: #fff;
+  font-weight: 600;
+  padding: 7px 10px;
+  border: 1px solid var(--color-primary-600);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--color-neutral-200);
+  color: var(--color-neutral-700);
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.data-table tr:nth-child(even) td { background: var(--color-neutral-100); }
+
+/* Pricing total highlight block */
+.price-total {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 8px;
+}
+
+.price-total td {
+  border: none;
+  padding: 8px 14px;
+}
+
+.price-total tr:first-child td { background: var(--color-neutral-100); border-top: 1px solid var(--color-neutral-200); border-bottom: none; }
+.price-total tr:last-child  td { border-bottom: 1px solid var(--color-neutral-200); }
+
+.price-label { font-size: 12px; font-weight: 700; color: var(--color-neutral-900); }
+.price-label-small { font-size: 11px; color: var(--color-neutral-700); }
+.price-amount { font-size: 18px; font-weight: 700; color: var(--color-primary-500); text-align: right; }
+.price-amount-small { font-size: 12px; font-weight: 700; color: var(--color-neutral-700); text-align: right; }
+
+/* Signature block */
+.sig-block {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  font-size: 11px;
+  color: var(--color-neutral-700);
+}
+
+.sig-row {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-neutral-200);
+  margin-bottom: 10px;
+}
+
+.sig-row span:first-child { white-space: nowrap; }
+
+/* page-break helper */
+.break-before { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE 1 — COVER
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover__bar"></div>
+  <div class="cover__body">
+
+    <!-- Top meta row -->
+    <div class="cover__meta">
+      <span class="cover__doc-type">S O L U T I O N &nbsp; P R O P O S A L</span>
+      <span class="cover__confidential">机密文件，仅供内部参阅</span>
+    </div>
+    <hr class="cover__rule">
+
+    <!-- Client logo — Vesuvius, as client visual illustration -->
+    <div class="cover__client-logo">
+      <img src="../media/covers/VESUVIUS_logo.png" alt="Vesuvius">
+    </div>
+
+    <!-- Title block -->
+    <div class="cover__title-block">
+      <h1 class="cover__title">企业培训平台功能增强建设建议书</h1>
+      <p class="cover__subtitle">Enterprise Training Platform Enhancement Proposal</p>
+      <span class="cover__scope">
+        培训内容管理 &nbsp;·&nbsp; 课程部署 &nbsp;·&nbsp; 积分激励 &nbsp;·&nbsp; 视频培训 &nbsp;·&nbsp; 培训矩阵 &nbsp;·&nbsp; 数据台账
+      </span>
+    </div>
+
+    <div class="cover__spacer"></div>
+
+    <!-- Address block -->
+    <div class="cover__address">
+      <!-- Left: Prepared for -->
+      <div class="cover__addr-col">
+        <span class="cover__addr-label">Prepared for</span>
+        <span class="cover__addr-company">维苏威高级陶瓷（中国）有限公司</span>
+        <span class="cover__addr-detail">（总部及核心办公室）</span>
+        <span class="cover__addr-detail">江苏省苏州市工业园区星明街 221 号</span>
+      </div>
+      <!-- Right: Prepared by -->
+      <div class="cover__addr-col cover__addr-col--right">
+        <span class="cover__addr-label">Prepared by</span>
+        <div class="cover__addr-logo">
+          <img src="../../../assets/logo-horizontal-primary.png" alt="未来方舟">
+        </div>
+        <span class="cover__addr-company">未来方舟（上海）科技有限公司</span>
+        <span class="cover__addr-detail">上海漕河泾创业中心大厦（桂平路）302 栋</span>
+      </div>
+    </div>
+
+    <div class="cover__date">2026 年 6 月</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE 2 — TABLE OF CONTENTS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="toc-page">
+    <h2 class="toc-title">目 录</h2>
+    <hr class="toc-rule">
+    <table class="toc-table">
+      <tr class="toc-main">
+        <td class="toc-num">一</td>
+        <td class="toc-name">项目背景与目标</td>
+        <td class="toc-desc">建设主线与六大管理改变</td>
+      </tr>
+      <tr class="toc-main">
+        <td class="toc-num">二</td>
+        <td class="toc-name">本期建设范围</td>
+        <td class="toc-desc">六个功能版块总览</td>
+      </tr>
+      <tr class="toc-main">
+        <td class="toc-num">三</td>
+        <td class="toc-name">功能方案</td>
+        <td class="toc-desc">各模块功能详述与价值说明</td>
+      </tr>
+      <tr class="toc-sub">
+        <td class="toc-num"></td>
+        <td class="toc-sub-name">3.1 &nbsp; 培训内容管理</td>
+        <td class="toc-desc">完成规则 · 审核流 · 版本记录 · AI 辅助</td>
+      </tr>
+      <tr class="toc-sub">
+        <td class="toc-num"></td>
+        <td class="toc-sub-name">3.2 &nbsp; 课程部署</td>
+        <td class="toc-desc">任务分配 · 截止追踪 · 部署历史</td>
+      </tr>
+      <tr class="toc-sub">
+        <td class="toc-num"></td>
+        <td class="toc-sub-name">3.3 &nbsp; 正负积分体系</td>
+        <td class="toc-desc">激励约束 · 积分流水 · 团队参与度</td>
+      </tr>
+      <tr class="toc-sub">
+        <td class="toc-num"></td>
+        <td class="toc-sub-name">3.4 &nbsp; 视频培训</td>
+        <td class="toc-desc">在线播放 · 断点续播 · 进度真实记录</td>
+      </tr>
+      <tr class="toc-sub">
+        <td class="toc-num"></td>
+        <td class="toc-sub-name">3.5 &nbsp; 培训矩阵</td>
+        <td class="toc-desc">全员覆盖视图 · 多维度筛选 · 一键导出</td>
+      </tr>
+      <tr class="toc-sub">
+        <td class="toc-num"></td>
+        <td class="toc-sub-name">3.6 &nbsp; 数据统计与台账</td>
+        <td class="toc-desc">多类型报表 · 合规数据出口</td>
+      </tr>
+      <tr class="toc-main">
+        <td class="toc-num">四</td>
+        <td class="toc-name">双方团队分工</td>
+        <td class="toc-desc">任务清单 · 工作界面 · 初步项目进度</td>
+      </tr>
+      <tr class="toc-main">
+        <td class="toc-num">五</td>
+        <td class="toc-name">报价方案</td>
+        <td class="toc-desc">分层席位模型 · 费用明细 · 报价说明</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE 3 — BODY CONTENT STARTS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content-page">
+
+  <!-- Running header -->
+  <div class="running-header">
+    <div class="running-header__logo">
+      <img src="../../../assets/logo-horizontal-primary.png" alt="未来方舟">
+    </div>
+    <span class="running-header__label">企业培训平台增强建议书 · V3.0 · 机密文件</span>
+  </div>
+
+  <!-- Document info table -->
+  <table class="info-table">
+    <tr><td>提交至</td><td>维苏威高级陶瓷（中国）有限公司</td></tr>
+    <tr><td>项目名称</td><td>企业培训平台功能增强建设项目</td></tr>
+    <tr><td>版本</td><td>V3.0</td></tr>
+    <tr><td>文件性质</td><td>机密文件，仅供内部参阅</td></tr>
+    <tr><td>预计周期</td><td>约 8 周（视最终范围确认）</td></tr>
+  </table>
+
+  <!-- 一、项目背景与目标 -->
+  <h2 class="ch1">一、项目背景与目标</h2>
+  <p class="body-p">
+    贵司现有培训平台已具备基础的内容管理能力。本次增强的核心目标是让培训从"内容已发布"
+    真正走向"任务被完成、过程有记录、结果可追溯"——让管理者不再依赖手工 Excel 和
+    微信群催促，让每一次培训都有闭环。
+  </p>
+  <p class="body-p">本期建设将在六个维度产生直接的管理改变：</p>
+  <ul class="blist">
+    <li>培训任务有人认领、有截止时间、完成情况实时可查，执行率可量化。</li>
+    <li>员工参与有正向激励和逾期约束，学习行为有数据记录。</li>
+    <li>操作规程、安全演示等视频内容可上传课程并分发部署，观看完成情况自动留痕。</li>
+    <li>一张培训矩阵实时展示所有员工的课程覆盖情况，无需人工汇总。</li>
+    <li>学习过程真实性有基础保障，培训记录具备可信度与审计能力。</li>
+    <li>培训记录、积分流水、考试台账具备向合规档案扩展的数据基础。</li>
+  </ul>
+  <div class="note">
+    <span class="note__label">一句话概括</span>
+    建设主线：内容可管理 → 任务可部署 → 过程可监督 → 结果可统计 → 数据可导出。
+  </div>
+
+  <!-- 二、本期建设范围 -->
+  <h2 class="ch1">二、本期建设范围</h2>
+  <p class="body-p">本期围绕六个功能版块展开建设，每个版块都直接对应贵司管理团队的一个具体痛点。</p>
+  <table class="data-table">
+    <thead><tr><th style="width:22%">功能版块</th><th>对 Vesuvius 的直接价值</th></tr></thead>
+    <tbody>
+      <tr><td>培训内容管理</td><td>课程内容有人审核、有版本记录，确保员工看到的是已授权的最新版本</td></tr>
+      <tr><td>课程部署</td><td>每次培训都有明确责任人、截止时间和完成追踪，彻底告别微信群催促</td></tr>
+      <tr><td>正负积分体系</td><td>完成课程有奖励、逾期有约束，积分记录透明，驱动员工主动学习</td></tr>
+      <tr><td>视频培训</td><td>上传操作规程或安全演示视频，员工在线观看，系统自动记录完成状态</td></tr>
+      <tr><td>培训矩阵</td><td>一张实时视图展示所有员工的课程完成率，部门/岗位缺口一眼可见</td></tr>
+      <tr><td>数据统计与台账</td><td>完成报表、考试记录、积分明细一键导出，支持内部汇报与合规备查</td></tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>未来方舟（上海）科技有限公司</span>
+    <span>机密文件 · 仅供 Vesuvius 中国区内部参阅</span>
+  </div>
+</div>
+</div><!-- end page 3 -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE 4 — 三、功能方案 3.1 / 3.2
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content-page">
+  <div class="running-header">
+    <div class="running-header__logo"><img src="../../../assets/logo-horizontal-primary.png"></div>
+    <span class="running-header__label">三、功能方案</span>
+  </div>
+
+  <h2 class="ch1">三、功能方案</h2>
+
+  <h3 class="ch2">3.1 &nbsp; 培训内容管理</h3>
+  <p class="body-p">
+    管理员可对课程内容持续维护，设置不同类型课程的完成规则，并通过审核流确保每门课程
+    在正式发布前经过负责人确认。制度宣导类课程可设为"阅读确认即完成"；安全培训类课程
+    可叠加"视频观看比例 + 考试通过"；版本记录确保每次改动都有据可查。
+  </p>
+  <table class="data-table">
+    <thead><tr><th style="width:24%">功能</th><th>您将获得</th></tr></thead>
+    <tbody>
+      <tr><td>灵活的完成规则</td><td>按课程类型分别配置：阅读确认 / 视频观看比例 / 考试通过，不强迫所有课程走同一套标准</td></tr>
+      <tr><td>内容审核流</td><td>课程正式发布前须经培训负责人审核，防止未授权内容失误发布到平台内部</td></tr>
+      <tr><td>版本记录</td><td>每次发布形成版本留痕，历史版本可追溯，迎检时有完整内容变更依据</td></tr>
+      <tr><td>AI 辅助</td><td>支持 AI 辅助生成知识点新建章节，考试题目支持 AI 辅助生成，大幅降低题库维护工作量</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="ch2">3.2 &nbsp; 课程部署</h3>
+  <p class="body-p">
+    课程部署是让培训从"资源库"变成"执行任务"的关键。管理员按部门、岗位或人员维度
+    分配课程，设置截止时间和提醒规则后，系统自动追踪每个人的完成进度——谁完成了、
+    谁逾期了、考试结果怎样，全部实时可查，无需手工汇总。
+  </p>
+  <table class="data-table">
+    <thead><tr><th style="width:24%">功能</th><th>您将获得</th></tr></thead>
+    <tbody>
+      <tr><td>灵活的分配方式</td><td>支持按员工、部门、岗位、职能、班组多维度分配，一次操作覆盖目标人群</td></tr>
+      <tr><td>截止时间与提醒</td><td>系统在临近截止时自动提醒未完成员工，逾期情况同步通知管理者</td></tr>
+      <tr><td>实时完成追踪</td><td>管理员随时查看当前部署的完成率、未完成人员清单与考试通过情况</td></tr>
+      <tr><td>部署历史存档</td><td>每次培训的对象、版本、完成情况长期留存，支持年度培训复盘与审查</td></tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>未来方舟（上海）科技有限公司</span>
+    <span>机密文件 · 仅供 Vesuvius 中国区内部参阅</span>
+  </div>
+</div>
+</div><!-- end page 4 -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE 5 — 3.3 / 3.4 / 3.5
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content-page">
+  <div class="running-header">
+    <div class="running-header__logo"><img src="../../../assets/logo-horizontal-primary.png"></div>
+    <span class="running-header__label">三、功能方案（续）</span>
+  </div>
+
+  <h3 class="ch2">3.3 &nbsp; 正负积分体系</h3>
+  <p class="body-p">
+    积分体系以数据化方式建立轻量级激励和约束，代替反复的行政催促。完成课程自动加分，
+    逾期自动扣分，每一笔积分流水都有明细可查——员工看得到自己的表现，管理者看得到
+    团队的整体参与度。
+  </p>
+  <table class="data-table">
+    <thead><tr><th style="width:28%">积分规则</th><th style="width:36%">员工视角</th><th>管理者视角</th></tr></thead>
+    <tbody>
+      <tr><td>完成课程 / 考试通过</td><td>个人积分实时增加，可查看积分明细</td><td>整体参与度提升，无需反复催促</td></tr>
+      <tr><td>课程逾期 / 考试未过</td><td>收到系统提示，清楚了解扣分原因</td><td>逾期记录可导出，支持部门绩效参考</td></tr>
+      <tr><td>活动奖励 / 人工调整</td><td>积分变动有通知，透明公正</td><td>管理端可补发或纠错，全程留审计日志</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="ch2">3.4 &nbsp; 视频培训</h3>
+  <p class="body-p">
+    管理员可在课程章节中上传操作规程、安全培训演示或设备维护视频，员工通过 PC 或
+    手机浏览器在线观看。系统实时记录每位员工的观看进度，可配置"观看达到指定比例
+    方可完成课程"，确保视频培训留有真实记录而非仅标注已观看。
+  </p>
+  <table class="data-table">
+    <thead><tr><th style="width:24%">功能</th><th>您将获得</th></tr></thead>
+    <tbody>
+      <tr><td>在线上传与播放</td><td>视频直接上传至课程，员工无需下载，PC / 手机浏览器均可播放</td></tr>
+      <tr><td>断点续播</td><td>员工上次观看到哪里，下次自动从断点继续，不影响碎片化学习</td></tr>
+      <tr><td>观看进度记录</td><td>系统记录实际观看比例，课程完成判断基于真实数据而非点击记录</td></tr>
+      <tr><td>播放控制</td><td>可配置是否允许拖拽进度条，防止员工跳过关键内容直接标记完成</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="ch2">3.5 &nbsp; 培训矩阵</h3>
+  <p class="body-p">
+    培训矩阵解决的是"每次想了解培训覆盖情况，都要从头拉数据、手工处理 Excel"的问题。
+    它是一张始终在线、实时更新的全员培训视图，管理者可以按部门、岗位或培训状态快速
+    筛选，一眼定位需要关注的人员或课程，并支持一键导出。
+  </p>
+  <table class="data-table">
+    <thead><tr><th style="width:18%">视角</th><th style="width:46%">可以看到什么</th><th>典型场景</th></tr></thead>
+    <tbody>
+      <tr><td>员工个人</td><td>已完成哪些课程、还有哪些未完成、当前积分</td><td>员工自主了解学习任务进度</td></tr>
+      <tr><td>部门负责人</td><td>本部门完成率、逾期人数、课程通过率</td><td>月度培训汇报，无需手工统计</td></tr>
+      <tr><td>培训管理者</td><td>跨部门/岗位的完成缺口、课程执行效果对比</td><td>安全检查前快速准备培训台账</td></tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>未来方舟（上海）科技有限公司</span>
+    <span>机密文件 · 仅供 Vesuvius 中国区内部参阅</span>
+  </div>
+</div>
+</div><!-- end page 5 -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE 6 — 3.6 数据统计 + 四、双方团队分工 4.1
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content-page">
+  <div class="running-header">
+    <div class="running-header__logo"><img src="../../../assets/logo-horizontal-primary.png"></div>
+    <span class="running-header__label">三、功能方案（续） · 四、双方团队分工</span>
+  </div>
+
+  <h3 class="ch2">3.6 &nbsp; 数据统计与台账</h3>
+  <p class="body-p">
+    平台将课程完成、考试结果、积分变动、视频观看记录统一汇聚，支持按员工、部门、
+    岗位或时间段多维度导出。无论是月度内部汇报、年度安全培训统计，还是迎接政府
+    安全检查或 ISO 审核，都能在几分钟内生成一份完整的数字台账。
+  </p>
+  <table class="data-table">
+    <thead><tr><th style="width:26%">报表类型</th><th>典型用途</th></tr></thead>
+    <tbody>
+      <tr><td>培训完成报表</td><td>日常执行管理；按部门/岗位汇总完成率，快速定位缺口</td></tr>
+      <tr><td>考试结果报表</td><td>评估学习效果；识别需要补训的员工</td></tr>
+      <tr><td>积分明细报表</td><td>积分核查与管理复核；支持绩效参考数据导出</td></tr>
+      <tr><td>视频学习记录</td><td>视频课程完成判断依据；满足合规留痕要求</td></tr>
+      <tr><td>培训台账导出</td><td>迎检备查；ESG 培训覆盖数据出口；年度培训统计</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 四、双方团队分工 -->
+  <h2 class="ch1">四、双方团队分工</h2>
+  <h3 class="ch2">4.1 &nbsp; 任务清单与工作界面</h3>
+  <p class="body-p">
+    项目执行期间，双方团队在各阶段均有明确的责任边界。以下任务清单列出了每项工作的分工，
+    确保推进有序、不产生责任盲区。
+  </p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:5%">编</th>
+        <th style="width:14%">任务描述</th>
+        <th style="width:42%">甲方（Vesuvius）职责</th>
+        <th>我方职责</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td><td>需求确认</td>
+        <td>确认功能范围与角色权限；指定培训负责人作为项目对接人；审批需求清单</td>
+        <td>输出需求清单、主要页面原型及双方认可的验收标准</td>
+      </tr>
+      <tr>
+        <td>2</td><td>数据与组织准备</td>
+        <td>提供员工花名册及部门/岗位层级数据；确认课程分类体系与初始管理权限分配</td>
+        <td>完成组织架构导入、账号初始化及角色权限体系配置</td>
+      </tr>
+      <tr>
+        <td>3</td><td>功能开发</td>
+        <td>提供部分课程内容（文档/视频/其他格式）；对原型方案进行业务评审</td>
+        <td>开发六大功能模块，每周固定进度同步，问题当周响应</td>
+      </tr>
+      <tr>
+        <td>4</td><td>系统内测</td>
+        <td>组织 HR 及培训管理员参与内测，提供真实场景操作反馈</td>
+        <td>根据反馈修复问题并完成回归测试，确保功能符合验收标准</td>
+      </tr>
+      <tr>
+        <td>5</td><td>上线验收</td>
+        <td>组织管理员正式验收，确认系统满足建设目标后签署验收确认</td>
+        <td>提供管理员培训、学员端操作手册及完整交付文件</td>
+      </tr>
+      <tr>
+        <td>6</td><td>上线后运维</td>
+        <td>指定系统管理员负责日常运营；统一收集并反馈优化需求</td>
+        <td>提供上线后 1 年免费维护，功能问题响应时间不超过 1 个工作日</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>未来方舟（上海）科技有限公司</span>
+    <span>机密文件 · 仅供 Vesuvius 中国区内部参阅</span>
+  </div>
+</div>
+</div><!-- end page 6 -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE 7 — 4.2 进度 + 五、报价方案
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content-page">
+  <div class="running-header">
+    <div class="running-header__logo"><img src="../../../assets/logo-horizontal-primary.png"></div>
+    <span class="running-header__label">四、双方团队分工（续） · 五、报价方案</span>
+  </div>
+
+  <h3 class="ch2">4.2 &nbsp; 初步项目进度安排</h3>
+  <p class="body-p">标准版初步建设周期约 8 周，按五个阶段有序推进：</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:16%">阶段</th>
+        <th style="width:12%">周次</th>
+        <th style="width:34%">涉及职能</th>
+        <th>里程碑 / 交付物</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>需求确认</td><td>第 1 周</td><td>产品经理 · 甲方培训负责人</td><td>需求清单、权限矩阵、验收口径</td></tr>
+      <tr><td>原型设计</td><td>第 2 周</td><td>产品经理 · UI 设计师</td><td>主要页面原型，双方评审确认</td></tr>
+      <tr><td>功能开发</td><td>第 3–6 周</td><td>前端 · 后端 · 数据工程师</td><td>六大功能模块可联调版本</td></tr>
+      <tr><td>测试与修复</td><td>第 7 周</td><td>测试工程师 · 甲方内测团队</td><td>测试记录、修复清单、权限与报表验证</td></tr>
+      <tr><td>上线验收</td><td>第 8 周</td><td>产品经理 · 实施顾问</td><td>验收版本 · 管理员培训 · 操作手册</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 五、报价方案 -->
+  <h2 class="ch1">五、报价方案</h2>
+
+  <h3 class="ch2">5.1 &nbsp; 席位规划说明</h3>
+  <p class="body-p">
+    贵司全国共 2,500 名员工，其中 500 名办公室人员有固定电脑，2,000 名为一线员工
+    且流动率较高。针对两类人群的使用场景差异，我方建议采用"分层席位"模型——
+    分别为两类人群提供匹配其实际需求的访问权限，避免为一线员工支付不必要的高功能溢价。
+  </p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:20%">席位类型</th>
+        <th style="width:18%">适用人群</th>
+        <th style="width:16%">访问方式</th>
+        <th style="width:28%">核心功能</th>
+        <th>账号管理</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>A 类 · 全功能席位</td>
+        <td>办公室人员<br>500 人</td>
+        <td>PC + 移动端</td>
+        <td>全部功能，含 AI 辅助、高级报表、完整管理权限</td>
+        <td>固定命名账号，长期有效</td>
+      </tr>
+      <tr>
+        <td>B 类 · 流动席位池</td>
+        <td>一线员工<br>2,000 人额度</td>
+        <td>移动端为主</td>
+        <td>视频培训、课程完成、考试、积分、基础台账导出</td>
+        <td>支持快速回收再分配，离职账号可复用给新员工，无需额外付费</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <span class="note__label">流动席位说明</span>
+    当一线员工离职后，该账号可被管理员一键回收并重新分配给新入职员工，而不占用新的席位额度。无论年流动人数是 500 人还是 1,000 人，席位费用始终固定——贵司只为"2,000 个同时在册的一线学习席位"付费。
+  </div>
+
+  <div class="running-footer">
+    <span>未来方舟（上海）科技有限公司</span>
+    <span>机密文件 · 仅供 Vesuvius 中国区内部参阅</span>
+  </div>
+</div>
+</div><!-- end page 7 -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE 8 — 报价明细 + 签字
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content-page">
+  <div class="running-header">
+    <div class="running-header__logo"><img src="../../../assets/logo-horizontal-primary.png"></div>
+    <span class="running-header__label">五、报价方案（续）</span>
+  </div>
+
+  <h3 class="ch2">5.2 &nbsp; 费用明细</h3>
+  <p class="body-p">
+    以下报价基于贵司 2,500 人规模（500 名全功能席位 + 2,000 名流动席位池）制定，
+    含全功能部署、实施落地及上线后 1 年技术支持与免费维护服务。
+  </p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:22%">费用项目</th>
+        <th style="width:38%">说明</th>
+        <th style="width:15%">规格</th>
+        <th style="width:12%">单价</th>
+        <th>金额（元）</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>A 类席位年费</td>
+        <td>办公室人员，全功能访问</td>
+        <td>500 人/年</td>
+        <td>¥160 / 人 / 年</td>
+        <td><strong>¥ 80,000</strong></td>
+      </tr>
+      <tr>
+        <td>B 类席位池年费</td>
+        <td>一线员工，流动席位池</td>
+        <td>2,000 额度 / 年</td>
+        <td>¥30 / 额度 / 年</td>
+        <td><strong>¥ 60,000</strong></td>
+      </tr>
+      <tr>
+        <td>实施部署费（一次性）</td>
+        <td>平台配置 · 组织架构导入 · 权限初始化 · 管理员培训（含 1 年免费维护）</td>
+        <td>1 次</td>
+        <td>—</td>
+        <td><strong>¥ 38,000</strong></td>
+      </tr>
+      <tr>
+        <td>年度技术支持</td>
+        <td>Bug 修复 · 版本升级 · 工单响应（1 个工作日）</td>
+        <td>含于席位年费</td>
+        <td>—</td>
+        <td>含税</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Pricing total highlight -->
+  <table class="price-total">
+    <tr>
+      <td style="width:65%"><span class="price-label">第一年合计（含实施费）</span></td>
+      <td><span class="price-amount">¥ 178,000</span></td>
+    </tr>
+    <tr>
+      <td><span class="price-label-small">第二年起年度续费</span></td>
+      <td><span class="price-amount-small">¥ 140,000 / 年</span></td>
+    </tr>
+  </table>
+
+  <h3 class="ch2">5.3 &nbsp; 报价说明</h3>
+  <table class="data-table">
+    <thead><tr><th style="width:22%">条款</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>价格说明</td><td>以上报价均为不含税价，开具增值税专用发票（税率 6%）</td></tr>
+      <tr><td>有效期</td><td>本报价自文件出具之日起 60 个自然日内有效</td></tr>
+      <tr><td>长期合作优惠</td><td>若合同期签署 2 年，第 2 年席位年费享九五折优惠（¥133,000 / 年）</td></tr>
+      <tr><td>席位调整</td><td>合同期内如办公室人员规模发生变化，可按实际人数等比调整 A 类席位费用</td></tr>
+      <tr><td>增项服务</td><td>API 对接贵司 HR 系统、特种作业证书管理模块等可作为增项单独报价</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <span class="note__label">联系我们</span>
+    我们已为 Vesuvius 中国区预留了专项资源，欢迎随时安排平台演示或技术对话。期待与贵团队开始这段合作。
+  </div>
+
+  <!-- Signature block -->
+  <div class="sig-block">
+    <div>
+      <div class="sig-row"><span>公司名称：</span><span>未来方舟（上海）科技有限公司</span></div>
+      <div class="sig-row"><span>授权签字：</span><span style="flex:1"></span></div>
+      <div class="sig-row"><span>出具日期：</span><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 年 &nbsp;&nbsp;&nbsp;&nbsp; 月 &nbsp;&nbsp;&nbsp;&nbsp; 日</span></div>
+    </div>
+    <div>
+      <div class="sig-row"><span>公司盖章：</span><span style="flex:1;font-size:10px;color:#8A9199">（公章）</span></div>
+    </div>
+  </div>
+
+  <div class="running-footer">
+    <span>未来方舟（上海）科技有限公司</span>
+    <span>机密文件 · 仅供 Vesuvius 中国区内部参阅</span>
+  </div>
+</div>
+</div><!-- end page 8 -->
+
+</body>
+</html>

@@ -1,0 +1,964 @@
+/* ================================================================
+   ArktechX / 未来方舟  ·  PPT Design System CSS  v2.0
+   ----------------------------------------------------------------
+   Mirrors the visual design of brand_master.pptx.
+   Use for HTML slide previews, web decks, or brand documentation.
+
+   HTML structure expected:
+     <div class="ppt-deck">
+       <section class="ppt-slide slide-cover-dark"> ... </section>
+       <section class="ppt-slide slide-section"> ... </section>
+       <section class="ppt-slide slide-body"> ... </section>
+     </div>
+   ================================================================ */
+
+/* ─── 1. Design Tokens ─────────────────────────────────────────── */
+:root {
+  /* Background (semantic layer — matches brand.css & tokens.json) */
+  --color-bg-page:        #F8FAFC;   /* page-level bg */
+  --color-bg-neutral:     #FAFAFA;   /* weak section / slide bg */
+  --color-bg-surface:     #FFFFFF;   /* card / content container */
+
+  /* Border */
+  --color-border-default: #EAECF0;
+  --color-border-subtle:  #D0D5DD;
+
+  /* Text (semantic) */
+  --color-text-primary:   #101828;
+  --color-text-secondary: #475467;
+
+  /* Brand Core */
+  --p5:    #3EC99E;   /* primary-500   — main green */
+  --p6:    #319E7C;   /* primary-600   — deep green */
+  --p1:    #EAFAF5;   /* primary-100   — light green tint */
+  --s5:    #C8E13C;   /* secondary-500 — yellow-green */
+  --s1:    #F8FBE7;   /* secondary-100 — light yellow tint */
+
+  /* Neutrals */
+  --n9:    #0E1216;   /* neutral-900 — near black */
+  --n7:    #3D444A;   /* neutral-700 — body text */
+  --n4:    #8A9199;   /* neutral-400 — muted / caption */
+  --n2:    #D0D5DD;   /* neutral-200 — subtle border */
+  --n1:    #F2F3F5;   /* neutral-100 — zebra row */
+  --n0:    #FAFAFA;   /* near-white  — light slide bg (= color-bg-neutral) */
+  --wh:    #FFFFFF;   /* white (= color-bg-surface) */
+
+  /* Semantic */
+  --ok:    #53AF36;
+  --wa:    #F3B021;
+  --er:    #F12D2D;
+  --pu:    #8255E1;
+  --te:    #3CC5CF;
+
+  /* Gradients */
+  --grad-title:    linear-gradient(90deg,  #3EC99E 0%, #4B9E31 48%, #C8E13C 100%);
+  --grad-title-v:  linear-gradient(180deg, #3EC99E 0%, #C8E13C 100%);
+  --grad-cover:    linear-gradient(135deg, #0E1216 0%, #182918 100%);
+  --grad-section:  linear-gradient(135deg, #3EC99E 0%, #4B9E31 100%);
+  --grad-card:     linear-gradient(160deg, #EAFAF5 0%, #F8FBE7 100%);
+
+  /* Typography */
+  --font-cn: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-en: "Inter", "SF Pro Display", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", monospace;
+
+  /* Slide geometry (16:9 at 1333 × 750 reference) */
+  --slide-w:       1333px;
+  --slide-h:       750px;
+  --slide-margin:  63px;         /* ~4.7% of 1333px  ≈ Mm(21) in PPTX */
+  --header-h:      135px;        /* 18% of 750px  ≈ Mm(36) in PPTX */
+  --footer-h:      49px;         /* 6.5% of 750px ≈ Mm(13) in PPTX */
+
+  /* Shadows — deliberately subtle, no harsh drops */
+  --shadow-xs:   0 1px 3px rgba(0,0,0,0.04);
+  --shadow-sm:   0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md:   0 4px 14px rgba(0,0,0,0.07);
+  --shadow-card: 0 2px 10px rgba(62,201,158,0.09), 0 1px 3px rgba(0,0,0,0.04);
+
+  /* Radius */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 18px;
+}
+
+
+/* ─── 2. Reset & Base ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+.ppt-deck {
+  font-family: var(--font-cn);
+  color: var(--n7);
+  background: #e5e7ea;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  align-items: center;
+}
+
+
+/* ─── 3. Slide Shell ───────────────────────────────────────────── */
+.ppt-slide {
+  position: relative;
+  width: var(--slide-w);
+  height: var(--slide-h);
+  overflow: hidden;
+  background: var(--wh);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-cn);
+}
+
+/* Responsive scale helper — wrap deck in .ppt-deck-scale */
+.ppt-deck-scale .ppt-slide {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+}
+
+
+/* ─── 4. Gradient Text Utility ─────────────────────────────────── */
+.text-gradient {
+  background: var(--grad-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-gradient-v {
+  background: var(--grad-title-v);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+
+/* ─── 5. Cover Slide — Dark ────────────────────────────────────── */
+.slide-cover-dark {
+  background: var(--grad-cover);
+}
+
+.slide-cover-dark .ppt-cover-body {
+  position: absolute;
+  left: var(--slide-margin);
+  top: 50%;
+  transform: translateY(-42%);
+  width: calc(var(--slide-w) * 0.65);
+}
+
+.slide-cover-dark .ppt-cover-title {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1.15;
+  background: var(--grad-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 16px;
+}
+
+.slide-cover-dark .ppt-cover-subtitle {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--n4);
+  font-family: var(--font-en);
+  letter-spacing: 0.02em;
+  margin-bottom: 10px;
+}
+
+.slide-cover-dark .ppt-cover-tagline {
+  font-size: 13px;
+  color: var(--p1);
+  font-family: var(--font-en);
+}
+
+/* Left accent bar */
+.slide-cover-dark::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 15%; bottom: 15%;
+  width: 4px;
+  background: var(--grad-section);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Bottom bar */
+.slide-cover-dark::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: var(--p5);
+}
+
+
+/* ─── 6. Cover Slide — Light (VS Style / default) ──────────────── */
+.slide-cover-light {
+  background: var(--color-bg-page);   /* #F8FAFC — page-level bg */
+}
+
+.slide-cover-light .ppt-cover-body {
+  position: absolute;
+  left: var(--slide-margin);
+  top: 48%;
+  transform: translateY(-50%);
+  width: calc(var(--slide-w) * 0.62);
+}
+
+.slide-cover-light .ppt-cover-title {
+  font-size: 60px;
+  font-weight: 700;
+  line-height: 1.1;
+  background: var(--grad-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 20px;
+}
+
+.slide-cover-light .ppt-cover-separator {
+  width: 100%;
+  height: 1px;
+  background: var(--n2);
+  margin-bottom: 18px;
+}
+
+.slide-cover-light .ppt-cover-subtitle {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--n7);
+  font-family: var(--font-en);
+  margin-bottom: 10px;
+}
+
+.slide-cover-light .ppt-cover-meta {
+  font-size: 13px;
+  color: var(--n4);
+  font-family: var(--font-en);
+}
+
+/* Thin left bar */
+.slide-cover-light::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--p5);
+}
+
+
+/* ─── 7. Section Divider Slide ─────────────────────────────────── */
+.slide-section {
+  background: var(--grad-section);
+}
+
+.slide-section .ppt-section-num {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -100%);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  font-family: var(--font-en);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.slide-section .ppt-section-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--wh);
+  text-align: center;
+  width: 80%;
+  line-height: 1.2;
+}
+
+.slide-section .ppt-section-deco {
+  position: absolute;
+  right: 5%;
+  bottom: 8%;
+  width: 64px;
+  opacity: 0.3;
+}
+
+
+/* ─── 8. Body Slide — Standard ─────────────────────────────────── */
+.slide-body {
+  background: var(--wh);
+}
+
+/* Top accent line */
+.slide-body::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--p5);
+}
+
+/* Header area */
+.ppt-header {
+  position: absolute;
+  top: 0;
+  left: var(--slide-margin);
+  right: var(--slide-margin);
+  height: var(--header-h);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 10px;
+}
+
+.ppt-header-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--p5);
+  font-family: var(--font-en);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.ppt-header-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--n9);
+  line-height: 1.15;
+  margin-bottom: 4px;
+}
+
+.ppt-header-subtitle {
+  font-size: 13px;
+  color: var(--n4);
+  font-family: var(--font-en);
+}
+
+.ppt-header-rule {
+  position: absolute;
+  bottom: 0;
+  left: 0; right: 0;
+  height: 1px;
+  background: var(--n2);
+}
+
+/* Content area */
+.ppt-content {
+  position: absolute;
+  top: var(--header-h);
+  left: var(--slide-margin);
+  right: var(--slide-margin);
+  bottom: var(--footer-h);
+  overflow: hidden;
+}
+
+/* Footer */
+.ppt-footer {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: var(--footer-h);
+  border-top: 1px solid var(--n2);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--slide-margin);
+}
+
+.ppt-footer-logo {
+  height: 24px;
+  margin-left: auto;
+}
+
+.ppt-footer-page {
+  font-size: 10px;
+  color: var(--n4);
+  font-family: var(--font-en);
+}
+
+
+/* ─── 9. Bullet / Body Text ────────────────────────────────────── */
+.ppt-body-text {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--n7);
+}
+
+.ppt-body-text p + p { margin-top: 10px; }
+
+.ppt-bullets {
+  list-style: none;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--n7);
+}
+
+.ppt-bullets li {
+  padding-left: 1.2em;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.ppt-bullets li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--p5);
+}
+
+.ppt-bullets .sub {
+  font-size: 13px;
+  color: var(--n4);
+  padding-left: 2em;
+  margin-top: 2px;
+}
+
+strong, .ppt-bold { font-weight: 600; color: var(--n9); }
+
+
+/* ─── 10. Card Components ──────────────────────────────────────── */
+.ppt-card {
+  background: var(--n1);
+  border-radius: var(--r-md);
+  padding: 18px 20px;
+  border: 1px solid var(--n2);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--transition);
+}
+
+.ppt-card:hover { box-shadow: var(--shadow-card); }
+
+.ppt-card-accent {
+  background: var(--p1);
+  border: 1px solid rgba(62,201,158,0.18);
+}
+
+.ppt-card-secondary {
+  background: var(--s1);
+  border: 1px solid rgba(200,225,60,0.2);
+}
+
+.ppt-card-dark {
+  background: var(--n9);
+  color: var(--wh);
+  border: none;
+}
+
+/* Left accent bar variant */
+.ppt-card-bar {
+  border-left: 3px solid var(--p5);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--n1);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-xs);
+}
+
+.ppt-card-bar.bar-secondary { border-left-color: var(--s5); }
+.ppt-card-bar.bar-deep      { border-left-color: var(--p6); }
+
+.ppt-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--n9);
+  margin-bottom: 6px;
+}
+
+.ppt-card-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--n7);
+}
+
+.ppt-card-icon {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.ppt-card-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--p5);
+  background: var(--p1);
+  border-radius: var(--r-sm);
+  padding: 2px 8px;
+  margin-bottom: 8px;
+}
+
+
+/* ─── 11. Three-Cards Layout ───────────────────────────────────── */
+.ppt-three-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  height: 100%;
+  align-content: start;
+  padding-top: 12px;
+}
+
+.ppt-two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  height: 100%;
+  align-content: start;
+}
+
+.ppt-two-cols .col-divider {
+  width: 1px;
+  background: var(--n2);
+  align-self: stretch;
+}
+
+
+/* ─── 12. Stats Grid ───────────────────────────────────────────── */
+.ppt-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
+  height: 100%;
+  padding-top: 10px;
+}
+
+.ppt-stat-card {
+  background: var(--n1);
+  border-radius: var(--r-md);
+  border: 1px solid var(--n2);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: var(--shadow-xs);
+}
+
+.ppt-stat-card.accent { background: var(--p1); border-color: rgba(62,201,158,0.2); }
+.ppt-stat-card.dark   { background: var(--n9); border-color: transparent; color: var(--wh); }
+
+.ppt-stat-value {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--grad-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 4px;
+}
+
+.ppt-stat-card.dark .ppt-stat-value {
+  background: var(--grad-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.ppt-stat-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--n9);
+  margin-bottom: 4px;
+}
+
+.ppt-stat-card.dark .ppt-stat-label { color: var(--wh); }
+
+.ppt-stat-desc {
+  font-size: 12px;
+  color: var(--n4);
+  line-height: 1.5;
+}
+
+.ppt-stat-card.dark .ppt-stat-desc { color: rgba(255,255,255,0.55); }
+
+
+/* ─── 13. Timeline ─────────────────────────────────────────────── */
+.ppt-timeline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding-top: 20px;
+  position: relative;
+}
+
+/* Horizontal connector line */
+.ppt-timeline::before {
+  content: '';
+  position: absolute;
+  top: 32px;
+  left: 40px;
+  right: 40px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--p5), var(--s5));
+}
+
+.ppt-timeline-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0 8px;
+}
+
+.ppt-timeline-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--p5);
+  border: 3px solid var(--wh);
+  box-shadow: 0 0 0 2px var(--p5);
+  z-index: 1;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.ppt-timeline-dot.milestone {
+  background: var(--s5);
+  box-shadow: 0 0 0 2px var(--s5);
+}
+
+.ppt-timeline-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--p5);
+  font-family: var(--font-en);
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.ppt-timeline-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--n9);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.ppt-timeline-desc {
+  font-size: 11px;
+  color: var(--n4);
+  text-align: center;
+  line-height: 1.5;
+}
+
+
+/* ─── 14. Quote Slide ──────────────────────────────────────────── */
+.slide-quote {
+  background: var(--n9);
+}
+
+.ppt-quote-body {
+  position: absolute;
+  left: var(--slide-margin);
+  right: var(--slide-margin);
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+}
+
+.ppt-quote-mark {
+  font-size: 64px;
+  line-height: 0.8;
+  color: var(--p5);
+  font-family: var(--font-en);
+  margin-bottom: 20px;
+  display: block;
+  opacity: 0.7;
+}
+
+.ppt-quote-text {
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--wh);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.ppt-quote-author {
+  font-size: 16px;
+  font-weight: 600;
+  background: var(--grad-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 4px;
+}
+
+.ppt-quote-role {
+  font-size: 13px;
+  color: var(--n4);
+  font-family: var(--font-en);
+}
+
+
+/* ─── 15. Table ────────────────────────────────────────────────── */
+.ppt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.ppt-table thead tr {
+  background: var(--p5);
+  color: var(--wh);
+}
+
+.ppt-table thead th {
+  padding: 10px 14px;
+  font-weight: 600;
+  text-align: left;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.ppt-table thead th:first-child { border-radius: var(--r-sm) 0 0 0; }
+.ppt-table thead th:last-child  { border-radius: 0 var(--r-sm) 0 0; }
+
+.ppt-table tbody tr:nth-child(odd)  { background: var(--n1); }
+.ppt-table tbody tr:nth-child(even) { background: var(--wh); }
+
+.ppt-table tbody tr:hover { background: var(--p1); }
+
+.ppt-table tbody td {
+  padding: 9px 14px;
+  color: var(--n7);
+  border-bottom: 1px solid var(--n2);
+}
+
+.ppt-table tbody td:first-child { font-weight: 500; color: var(--n9); }
+
+.ppt-table tfoot td {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--n4);
+  border-top: 1px solid var(--n2);
+}
+
+/* Data badges in table */
+.ppt-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ppt-badge-green  { background: var(--p1);  color: var(--p6); }
+.ppt-badge-yellow { background: var(--s1);  color: #7A8A10; }
+.ppt-badge-red    { background: #FEE8E8;    color: var(--er); }
+.ppt-badge-gray   { background: var(--n1);  color: var(--n4); }
+
+
+/* ─── 16. Text + Image Split Layouts ──────────────────────────── */
+.ppt-split-60-40 {
+  display: grid;
+  grid-template-columns: 60% 40%;
+  gap: 24px;
+  height: 100%;
+  align-items: center;
+}
+
+.ppt-split-40-60 {
+  display: grid;
+  grid-template-columns: 40% 60%;
+  gap: 24px;
+  height: 100%;
+  align-items: center;
+}
+
+.ppt-image-block {
+  background: var(--n1);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ppt-image-block img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ppt-image-caption {
+  font-size: 11px;
+  color: var(--n4);
+  margin-top: 6px;
+  text-align: center;
+  font-family: var(--font-en);
+}
+
+
+/* ─── 17. Closing / Thank You Slide ────────────────────────────── */
+.slide-closing {
+  background: var(--n9);
+}
+
+.slide-closing .ppt-closing-body {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: 70%;
+}
+
+.slide-closing .ppt-closing-message {
+  font-size: 56px;
+  font-weight: 700;
+  background: var(--grad-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 20px;
+}
+
+.slide-closing .ppt-closing-contact {
+  font-size: 15px;
+  color: var(--n4);
+  font-family: var(--font-en);
+  margin-bottom: 6px;
+}
+
+.slide-closing::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: var(--p5);
+}
+
+
+/* ─── 18. Note / Callout Block ─────────────────────────────────── */
+.ppt-note {
+  border-left: 3px solid var(--p5);
+  background: var(--n1);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--n7);
+  line-height: 1.6;
+}
+
+.ppt-note-label {
+  font-weight: 600;
+  color: var(--p5);
+  margin-right: 6px;
+}
+
+.ppt-note.note-warning { border-left-color: var(--wa); background: #FEF9EC; }
+.ppt-note.note-danger  { border-left-color: var(--er); background: #FEF0F0; }
+.ppt-note.note-info    { border-left-color: var(--te); background: #EDF9FA; }
+
+
+/* ─── 19. Tag / Pill / Badge ───────────────────────────────────── */
+.ppt-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: var(--p1);
+  color: var(--p6);
+}
+
+.ppt-pill-secondary { background: var(--s1); color: #7A8A10; }
+.ppt-pill-dark      { background: rgba(255,255,255,0.12); color: var(--wh); }
+
+
+/* ─── 20. Icon + Text Row ──────────────────────────────────────── */
+.ppt-icon-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.ppt-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--p1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.ppt-icon-badge.secondary { background: var(--s1); }
+.ppt-icon-badge.dark      { background: rgba(255,255,255,0.1); }
+
+.ppt-icon-text-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--n9);
+  margin-bottom: 2px;
+}
+
+.ppt-icon-text-body {
+  font-size: 12px;
+  color: var(--n4);
+  line-height: 1.5;
+}
+
+
+/* ─── 21. Decorative Elements ──────────────────────────────────── */
+.ppt-deco-circle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+.ppt-deco-circle.primary  { background: var(--p5); }
+.ppt-deco-circle.secondary { background: var(--s5); }
+
+/* Thin horizontal rule in content area */
+.ppt-rule {
+  border: none;
+  border-top: 1px solid var(--n2);
+  margin: 12px 0;
+}
+
+.ppt-rule-accent {
+  border: none;
+  border-top: 2px solid var(--p5);
+  width: 40px;
+  margin: 0 0 12px 0;
+}
+
+
+/* ─── 22. Utility ──────────────────────────────────────────────── */
+.text-primary   { color: var(--p5); }
+.text-secondary { color: var(--s5); }
+.text-muted     { color: var(--n4); }
+.text-dark      { color: var(--n9); }
+.text-white     { color: var(--wh); }
+
+.bg-primary     { background: var(--p5); }
+.bg-surface     { background: var(--n1); }
+.bg-dark        { background: var(--n9); }
+
+.fw-400 { font-weight: 400; }
+.fw-500 { font-weight: 500; }
+.fw-600 { font-weight: 600; }
+.fw-700 { font-weight: 700; }
+
+.font-en { font-family: var(--font-en); }
+.font-cn { font-family: var(--font-cn); }

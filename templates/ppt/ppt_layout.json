@@ -1,0 +1,704 @@
+{
+  "_meta": {
+    "version": "2.0.0",
+    "description": "PPT 页面结构配置。\"$...\" 引用由生成器从 tokens.json 解析；纯数值为 mm（无特殊说明）；字号定义已统一移至 tokens.json > typography.ppt.roles。",
+    "refSyntax": "\"$path.to.key\" 对应 tokens.json 同路径字段，\"$typography.ppt.roles.roleName\" 对应字号角色对象",
+    "unitConvention": {
+      "positions": "mm（相对于 canvas 左上角）",
+      "ratios": "0~1 小数（宽/高乘以 canvas 对应尺寸）",
+      "gradientPos": "0~100 整数百分比"
+    },
+    "referenceSource": "上海未来方舟智能科技有限公司及产品矩阵简介.pptx（508×285.75mm，28张）",
+    "scaleFactor": "参考文件与生成器 canvas 比例 = 338.58/508 ≈ 0.666"
+  },
+
+  "canvas": {
+    "_note": "16:9 标准幻灯片，与 tokens media.ppt.slideRatio 一致",
+    "slideRatio": "$media.ppt.slideRatio",
+    "widthIn": 13.33,
+    "heightIn": 7.50,
+    "widthMm": 338.58,
+    "heightMm": 190.50
+  },
+
+  "grid": {
+    "_note": "marginLeft/Right 为 PPT 内容区左右留白（mm），独立于 tokens spacing 体系（PPT 专用）",
+    "marginLeft": 21,
+    "marginRight": 21,
+    "col2Gap": 6,
+    "col3Gap": 5,
+    "gridColumns": "$media.ppt.gridColumns"
+  },
+
+  "zones": {
+    "header": {
+      "_note": "所有正文页顶部共用结构：主绿细线 + eyebrow + 标题 + 可选副标题 + 分割线。eyebrow 格式：'章节编号 · SECTION NAME'",
+      "height": 36,
+      "accentBar": {
+        "height": 2.5,
+        "color": "$colors.primary.500"
+      },
+      "eyebrow": {
+        "top": 4.5,
+        "height": 5,
+        "typography": "$typography.ppt.roles.eyebrow"
+      },
+      "title": {
+        "topDefault": 5.5,
+        "topWithEyebrow": 11,
+        "height": 18,
+        "widthRatio": 0.82,
+        "typography": "$typography.ppt.roles.slideTitle"
+      },
+      "subtitle": {
+        "topDefault": 24,
+        "topWithEyebrow": 27,
+        "height": 9,
+        "widthRatio": 0.80,
+        "typography": "$typography.ppt.roles.slideSubtitle"
+      },
+      "rule": {
+        "top": 33.5,
+        "height": 0.4,
+        "color": "$colors.neutral.200"
+      }
+    },
+    "footer": {
+      "_note": "所有正文页底部共用结构：分割线 + 右侧横版 Logo + 右下页码",
+      "height": 13,
+      "rule": {
+        "height": 0.4,
+        "color": "$colors.neutral.200"
+      },
+      "logo": {
+        "height": 5.8,
+        "width": 22.9,
+        "rightOffset": 6,
+        "bottomOffset": 2,
+        "variant": "horizontal-primary",
+        "_note": "实测参考文件 34.4×8.7mm @ 508mm → 22.9×5.8mm @ 338mm"
+      },
+      "pageNum": {
+        "width": 21,
+        "rightOffset": 0,
+        "bottomOffset": 1.5,
+        "typography": "$typography.ppt.roles.footerPageNum",
+        "align": "right"
+      }
+    },
+    "content": {
+      "_note": "CONTENT_Y = header.height；CONTENT_H = canvas.heightMm - header.height - footer.height = 141.5mm",
+      "topOffset": 36,
+      "bottomOffset": 13,
+      "contentHeightMm": 141.5
+    }
+  },
+
+  "gradient": {
+    "_note": "品牌渐变：primary-500 → semantic.success → secondary-500，对应 DrawingML gradFill angle=0（左→右）",
+    "title": {
+      "angle": 0,
+      "stops": [
+        { "pos": 0,   "color": "$colors.primary.500" },
+        { "pos": 48,  "color": "$colors.semantic.success" },
+        { "pos": 100, "color": "$colors.secondary.500" }
+      ]
+    }
+  },
+
+  "logo": {
+    "_note": "各页 Logo 规格（横版用于页脚，竖版用于封面/章节/结尾）",
+    "horizontalAspect": 3.96,
+    "minWidthPx": "$logo.minWidthPx",
+    "footer": {
+      "variant": "horizontal-primary",
+      "height": 5.8,
+      "width": 22.9,
+      "rightOffset": 6,
+      "bottomOffset": 2
+    },
+    "coverDark": {
+      "variant": "stacked-reverse",
+      "height": 26,
+      "left": 13,
+      "top": 11
+    },
+    "coverLight": {
+      "variant": "stacked-primary",
+      "height": 24,
+      "left": 13,
+      "top": 14
+    },
+    "divider": {
+      "variant": "stacked-reverse",
+      "height": 18
+    },
+    "closing": {
+      "variant": "stacked-reverse",
+      "height": 24,
+      "topOffset": 32
+    },
+    "quote": {
+      "variant": "horizontal-reverse",
+      "ref": "logo.footer"
+    }
+  },
+
+  "cardPalette": {
+    "_note": "三套卡片/统计格色系，按索引 0/1/2 循环。border 颜色已收录至 tokens（primary.200 / secondary.200）",
+    "sets": [
+      {
+        "bg":     "$colors.primary.100",
+        "border": "$colors.primary.200",
+        "accent": "$colors.primary.500"
+      },
+      {
+        "bg":     "$colors.neutral.100",
+        "border": "$colors.neutral.200",
+        "accent": "$colors.semantic.success"
+      },
+      {
+        "bg":     "$colors.secondary.100",
+        "border": "$colors.secondary.200",
+        "accent": "$colors.secondary.500"
+      }
+    ],
+    "statValueColors": [
+      "$colors.primary.500",
+      "$colors.neutral.900",
+      "$colors.neutral.900",
+      "$colors.semantic.success"
+    ]
+  },
+
+  "layouts": {
+
+    "cover_dark": {
+      "_description": "深色封面 — neutral.900 背景，渐变大标题，左侧竖向强调条，竖版反白 Logo",
+      "background": "$colors.neutral.900",
+      "usesHeader": false,
+      "usesFooter": false,
+      "elements": {
+        "accentBarLeft": {
+          "left": 0, "top": 28, "width": 3.5, "height": 85,
+          "color": "$colors.primary.500"
+        },
+        "logo": { "ref": "logo.coverDark" },
+        "title": {
+          "left": 22, "top": 65, "width": 205, "height": 38,
+          "typography": "$typography.ppt.roles.coverTitle",
+          "color": "gradient:title",
+          "align": "left"
+        },
+        "subtitle": {
+          "left": 22, "top": 107, "width": 205, "height": 16,
+          "typography": "$typography.ppt.roles.coverSubtitle",
+          "color": "$colors.neutral.400",
+          "optional": true
+        },
+        "tagline": {
+          "left": 22, "top": 126, "width": 205, "height": 10,
+          "typography": "$typography.ppt.roles.coverTagline",
+          "color": "$colors.primary.100",
+          "optional": true
+        },
+        "bottomBar": {
+          "left": 0, "topFromBottom": 3.5,
+          "widthFull": true, "height": 3.5,
+          "color": "$colors.primary.500"
+        }
+      }
+    },
+
+    "cover_light": {
+      "_description": "浅色封面（VS 风格）— background.page 底，渐变大标题，正色竖版 Logo，三栏底部信息区",
+      "background": "$colors.background.page",
+      "usesHeader": false,
+      "usesFooter": false,
+      "elements": {
+        "accentBarLeft": {
+          "left": 0, "top": 0, "width": 3, "heightFull": true,
+          "color": "$colors.primary.500"
+        },
+        "separator": {
+          "left": 16, "top": 90, "widthToRight": 20, "height": 0.5,
+          "color": "$colors.neutral.200"
+        },
+        "logo": { "ref": "logo.coverLight" },
+        "title": {
+          "left": 22, "top": 94, "width": 200, "height": 42,
+          "typography": "$typography.ppt.roles.coverTitleLight",
+          "color": "gradient:title",
+          "align": "left"
+        },
+        "subtitle": {
+          "left": 22, "top": 139, "width": 200, "height": 14,
+          "typography": "$typography.ppt.roles.coverSubtitle",
+          "color": "$colors.neutral.900",
+          "optional": true
+        },
+        "meta": {
+          "left": 22, "top": 155, "width": 200, "height": 10,
+          "typography": "$typography.ppt.roles.coverMeta",
+          "color": "$colors.neutral.400",
+          "optional": true
+        },
+        "tagline": {
+          "left": 22, "top": 168, "width": 200, "height": 10,
+          "typography": "$typography.ppt.roles.coverTagline",
+          "color": "$colors.neutral.400",
+          "optional": true
+        },
+        "metaColumns": {
+          "_note": "参考文件封面底部三栏：日期/版本/关键词，每栏宽约 92mm（338mm 可用宽 ÷ 3 ≈ 92mm）",
+          "top": 164, "height_value": 10, "height_label": 8,
+          "columnWidth": 91.5, "gap": 2,
+          "valuTypography": "$typography.ppt.roles.coverMetaValue",
+          "labelTypography": "$typography.ppt.roles.coverMetaLabel"
+        }
+      }
+    },
+
+    "table_of_contents": {
+      "_description": "目录页 — 2×N 章节卡片网格（参考文件 Slide 2：2行×3列），每格含章节号+标题+副标题+箭头",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "contentTopPad": 4,
+        "tocDesc": {
+          "_note": "目录页可选右上角简介文字",
+          "widthRatio": 0.35,
+          "top": 0,
+          "typography": "$typography.ppt.roles.bodySmall",
+          "color": "$colors.neutral.400",
+          "optional": true
+        },
+        "rule": {
+          "topFromContent": 1,
+          "height": 0.4,
+          "color": "$colors.neutral.200"
+        },
+        "grid": {
+          "_note": "默认 2行×3列，总计 6 个章节卡片，间距 6mm；每格内部：大章节号 + 章节标题 + 小标签线 + 副标题",
+          "cols": 3,
+          "rows": 2,
+          "gapH": 6,
+          "gapV": 6,
+          "card": {
+            "padding": 8,
+            "numberTopPad": 8,
+            "ruleTopPad": 7,
+            "ruleHeight": 0.5,
+            "ruleWidth": 5.7,
+            "ruleColor": "$colors.primary.500",
+            "subtitleTopPad": 3
+          }
+        },
+        "chapterNum": {
+          "typography": "$typography.ppt.roles.tocChapterNum"
+        },
+        "chapterTitle": {
+          "height": 12,
+          "typography": "$typography.ppt.roles.tocChapterTitle"
+        },
+        "chapterSub": {
+          "typography": "$typography.ppt.roles.tocChapterSub"
+        },
+        "arrow": {
+          "_note": "右上角跳转箭头 → ，可选",
+          "char": "→",
+          "typography": "$typography.ppt.roles.footerLabel",
+          "color": "$colors.primary.500",
+          "optional": true
+        }
+      }
+    },
+
+    "divider": {
+      "_description": "章节分隔页 — primary.500 主背景 + 右侧 success 叠层，左侧白色大标题，右侧 IN THIS CHAPTER 侧栏",
+      "background": "$colors.primary.500",
+      "usesHeader": false,
+      "usesFooter": false,
+      "elements": {
+        "overlayRight": {
+          "leftRatio": 0.72, "top": 0,
+          "widthRatio": 0.28, "heightFull": true,
+          "color": "$colors.semantic.success"
+        },
+        "bigNum": {
+          "_note": "装饰性超大章节数字，叠在背景上形成层次感（参考文件 390pt@508mm → 260pt@338mm）",
+          "left": 21, "top": 15,
+          "width": 159, "height": 82,
+          "typography": "$typography.ppt.roles.sectionBigNum",
+          "color": "$colors.neutral.0",
+          "opacity": 0.08,
+          "optional": true
+        },
+        "chapterLabel": {
+          "_note": "格式：'CHAPTER · 01'",
+          "leftMargin": true, "top": 85,
+          "widthRatio": 0.46, "height": 8,
+          "typography": "$typography.ppt.roles.sectionChapterLabel",
+          "align": "left",
+          "optional": true
+        },
+        "title": {
+          "leftMargin": true, "top": 93,
+          "widthRatio": 0.46, "height": 46,
+          "typography": "$typography.ppt.roles.sectionTitle",
+          "color": "$colors.neutral.0",
+          "align": "left"
+        },
+        "subtitle": {
+          "leftMargin": true, "top": 142,
+          "widthRatio": 0.46, "height": 14,
+          "typography": "$typography.ppt.roles.sectionSubtitle",
+          "align": "left",
+          "optional": true
+        },
+        "dividerAccentLine": {
+          "_note": "标题下方装饰横线（参考文件：31.8mm 宽，1.1mm 高）",
+          "leftMargin": true, "topAfterSubtitle": 6,
+          "width": 21, "height": 0.7,
+          "color": "$colors.neutral.0",
+          "opacity": 0.4,
+          "optional": true
+        },
+        "sidebar": {
+          "_note": "右侧'IN THIS CHAPTER'章节列表，位于 overlayRight 内（参考文件：x=349.2mm@508 → x=233mm@338，约 69%处）",
+          "leftRatio": 0.69,
+          "top": 93,
+          "widthRatio": 0.27,
+          "header": {
+            "height": 8,
+            "typography": "$typography.ppt.roles.sectionSidebarHeader",
+            "text": "IN THIS CHAPTER",
+            "align": "left"
+          },
+          "rule": {
+            "topFromHeader": 10,
+            "height": 0.2,
+            "color": "$colors.neutral.0",
+            "opacity": 0.3
+          },
+          "items": {
+            "topFromRule": 4,
+            "itemHeight": 9,
+            "gap": 0.5,
+            "maxItems": 6,
+            "typography": "$typography.ppt.roles.sectionSidebarItem",
+            "numColor": "$colors.primary.100",
+            "textColor": "$colors.neutral.0"
+          }
+        },
+        "bottomStrip": {
+          "left": 0, "topFromBottom": 4,
+          "widthFull": true, "height": 4,
+          "color": "$colors.secondary.500"
+        },
+        "logo": { "ref": "logo.divider" }
+      }
+    },
+
+    "body": {
+      "_description": "标准正文页 — 白底，Header（含 eyebrow）+ Footer，支持要点列表或自由正文",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "contentTopPad": 4,
+        "bullets": {
+          "typography": "$typography.ppt.roles.bodyBullet"
+        },
+        "bodyText": {
+          "typography": "$typography.ppt.roles.bodyText"
+        }
+      }
+    },
+
+    "two_col": {
+      "_description": "双栏正文页，可选栏标题，中间竖分割线",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "contentTopPad": 5,
+        "columnTitle": {
+          "height": 12,
+          "typography": "$typography.ppt.roles.colTitle",
+          "optional": true
+        },
+        "columnBody": {
+          "typography": "$typography.ppt.roles.colBody"
+        },
+        "divider": {
+          "width": 0.4,
+          "color": "$colors.neutral.200",
+          "topPad": 4,
+          "bottomPad": 8
+        }
+      }
+    },
+
+    "three_cards": {
+      "_description": "三卡片特性页，顶部各色强调条，内容区带内边距",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "contentTopPad": 6,
+        "card": {
+          "innerPadH": 5,
+          "accentHeight": 3,
+          "tagTopPad": 8,
+          "titleTopPad": 9,
+          "titleHeight": 18,
+          "palette": "cardPalette.sets"
+        },
+        "tag": {
+          "typography": "$typography.ppt.roles.cardTag",
+          "optional": true
+        },
+        "title": {
+          "typography": "$typography.ppt.roles.cardTitle"
+        },
+        "body": {
+          "typography": "$typography.ppt.roles.cardBody"
+        }
+      }
+    },
+
+    "big_stats": {
+      "_description": "大数字指标页（2×2 卡片），支持 2 或 4 个指标",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "contentTopPad": 6,
+        "maxStats": 4,
+        "cardGap": 8,
+        "card": {
+          "innerPadH": 6,
+          "valueTopPad": 8,
+          "valueHeight": 28,
+          "labelTopFromCardTop": 37,
+          "descTopFromCardTop": 49,
+          "palette": "cardPalette.sets",
+          "valueColors": "cardPalette.statValueColors"
+        },
+        "value": {
+          "typography": "$typography.ppt.roles.statValue"
+        },
+        "label": {
+          "typography": "$typography.ppt.roles.statLabel"
+        },
+        "desc": {
+          "typography": "$typography.ppt.roles.statDesc",
+          "optional": true
+        }
+      }
+    },
+
+    "timeline": {
+      "_description": "横向时间轴，最多 5 个节点，交替色节点圆点",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "maxNodes": 5,
+        "contentTopPad": 4,
+        "line": {
+          "topFromContent": 26,
+          "height": 1.6,
+          "color": "$colors.primary.500"
+        },
+        "dot": {
+          "radius": 4,
+          "colors": [
+            "$colors.primary.500",
+            "$colors.semantic.success",
+            "$colors.secondary.500",
+            "$colors.semantic.success",
+            "$colors.primary.500"
+          ]
+        },
+        "period": {
+          "topFromContent": 4,
+          "height": 14,
+          "typography": "$typography.ppt.roles.timelinePeriod",
+          "align": "center"
+        },
+        "title": {
+          "topFromLine": 8,
+          "height": 16,
+          "innerPadH": 2,
+          "typography": "$typography.ppt.roles.timelineTitle",
+          "align": "center"
+        },
+        "desc": {
+          "topFromLine": 25,
+          "innerPadH": 2,
+          "typography": "$typography.ppt.roles.timelineDesc",
+          "align": "center",
+          "optional": true
+        }
+      }
+    },
+
+    "quote": {
+      "_description": "深色引语 / 证言页 — neutral.900 背景，大引号，作者署名",
+      "background": "$colors.neutral.900",
+      "usesHeader": false,
+      "usesFooter": false,
+      "elements": {
+        "quoteMark": {
+          "leftMargin": true, "top": 28, "width": 30, "height": 26,
+          "char": "“",
+          "typography": "$typography.ppt.roles.quoteMark"
+        },
+        "body": {
+          "leftPad": 2, "top": 54, "rightPad": 4, "height": 52,
+          "typography": "$typography.ppt.roles.quoteBody",
+          "align": "left"
+        },
+        "accentLine": {
+          "leftMargin": true, "top": 112, "width": 32, "height": 1.5,
+          "color": "$colors.secondary.500"
+        },
+        "author": {
+          "leftMargin": true, "top": 117, "width": 180, "height": 12,
+          "typography": "$typography.ppt.roles.quoteAuthor",
+          "optional": true
+        },
+        "role": {
+          "leftMargin": true, "top": 131, "width": 180, "height": 10,
+          "typography": "$typography.ppt.roles.quoteRole",
+          "optional": true
+        },
+        "logo": { "ref": "logo.quote" },
+        "bottomBar": {
+          "left": 0, "topFromBottom": 3.5,
+          "widthFull": true, "height": 3.5,
+          "color": "$colors.primary.500"
+        }
+      }
+    },
+
+    "table": {
+      "_description": "数据表格页，Header 绿底白字，斑马纹交替行",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "contentTopPad": 5,
+        "header": {
+          "typography": "$typography.ppt.roles.tableHeader",
+          "bg": "$colors.primary.500",
+          "color": "$colors.neutral.0",
+          "align": "left"
+        },
+        "rowZebra": {
+          "odd":  "$colors.neutral.100",
+          "even": "$colors.neutral.0"
+        },
+        "cell": {
+          "typography": "$typography.ppt.roles.tableCell",
+          "typographyFirst": "$typography.ppt.roles.tableCellFirst",
+          "align": "left"
+        },
+        "note": {
+          "topPad": 3,
+          "height": 8,
+          "prefix": "注：",
+          "typography": "$typography.ppt.roles.tableNote",
+          "optional": true
+        }
+      }
+    },
+
+    "text_image_right": {
+      "_description": "左文字（58%）+ 右图片（42%），无图时显示品牌色占位色块",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "contentTopPad": 6,
+        "textWidthRatio": 0.58,
+        "gapMm": 6,
+        "text": {
+          "typography": "$typography.ppt.roles.bodyText",
+          "lineSpacingPt": 22
+        },
+        "imagePlaceholder": {
+          "bg":     "$colors.primary.100",
+          "border": "$colors.primary.200"
+        }
+      }
+    },
+
+    "image_left_text": {
+      "_description": "左图片（40%）+ 右文字（60%），无图时显示品牌色占位色块",
+      "background": "$colors.neutral.0",
+      "usesHeader": true,
+      "usesFooter": true,
+      "elements": {
+        "contentTopPad": 6,
+        "imageWidthRatio": 0.40,
+        "gapMm": 6,
+        "text": {
+          "typography": "$typography.ppt.roles.bodyText",
+          "lineSpacingPt": 22
+        },
+        "imagePlaceholder": {
+          "bg":     "$colors.primary.100",
+          "border": "$colors.primary.200"
+        }
+      }
+    },
+
+    "closing": {
+      "_description": "结尾页 — neutral.900 背景，渐变感谢语居中，竖版反白 Logo 居上",
+      "background": "$colors.neutral.900",
+      "usesHeader": false,
+      "usesFooter": false,
+      "elements": {
+        "logo": { "ref": "logo.closing" },
+        "message": {
+          "leftMargin": true, "top": 76,
+          "widthContent": true, "height": 40,
+          "typography": "$typography.ppt.roles.closingMessage",
+          "color": "gradient:title",
+          "align": "center"
+        },
+        "contact": {
+          "leftMargin": true, "top": 122,
+          "widthContent": true, "height": 12,
+          "typography": "$typography.ppt.roles.closingContact",
+          "align": "center",
+          "optional": true
+        },
+        "bottomBar": {
+          "left": 0, "topFromBottom": 3.5,
+          "widthFull": true, "height": 3.5,
+          "color": "$colors.primary.500"
+        }
+      }
+    }
+  },
+
+  "resolver": {
+    "_note": "生成器加载约定，供解析器读取",
+    "tokensPath": "../../../tokens.json",
+    "refPrefix": "$",
+    "specialValues": {
+      "gradient:title":  "由 gradient.title.stops 解析为 DrawingML gradFill",
+      "widthFull":       "canvas.widthMm",
+      "heightFull":      "canvas.heightMm",
+      "leftMargin":      "grid.marginLeft",
+      "widthContent":    "canvas.widthMm - grid.marginLeft - grid.marginRight",
+      "widthRatio":      "用于元素：此值 × canvas.widthMm",
+      "leftRatio":       "用于元素：此值 × canvas.widthMm"
+    }
+  }
+}

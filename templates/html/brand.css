@@ -1,0 +1,389 @@
+/*
+ * ArktechX Brand CSS
+ * Source of truth: tokens.json
+ * Usage: <link rel="stylesheet" href="../templates/html/brand.css">
+ *
+ * All brand colors are exposed as CSS custom properties.
+ * Use var(--color-primary-500) — never hard-code hex values.
+ */
+
+/* ── CSS Custom Properties (Design Tokens) ─────────────────────────────────── */
+:root {
+  /* Colors — Background (semantic layer) */
+  --color-bg-page:        #F8FAFC;   /* page-level bg */
+  --color-bg-neutral:     #FAFAFA;   /* weak section / auxiliary bg */
+  --color-bg-surface:     #FFFFFF;   /* card / content container bg */
+
+  /* Colors — Border */
+  --color-border-default: #EAECF0;   /* standard dividers & card borders */
+  --color-border-subtle:  #D0D5DD;   /* lighter secondary borders */
+
+  /* Colors — Text (semantic) */
+  --color-text-primary:   #101828;   /* headings, strong body text */
+  --color-text-secondary: #475467;   /* body, secondary labels */
+
+  /* Colors — Primary */
+  --color-primary-600:    #319E7C;
+  --color-primary-500:    #3EC99E;
+  --color-primary-100:    #EAFAF5;
+
+  /* Colors — Secondary */
+  --color-secondary-500:  #C8E13C;
+  --color-secondary-100:  #F8FBE7;
+
+  /* Colors — Neutral */
+  --color-neutral-900:    #0E1216;
+  --color-neutral-700:    #3D444A;
+  --color-neutral-400:    #8A9199;
+  --color-neutral-200:    #D0D5DD;
+  --color-neutral-100:    #F2F3F5;
+  --color-neutral-50:     #F8FAFC;
+  --color-white:          #FFFFFF;
+
+  /* Colors — Semantic */
+  --color-success:        #53AF36;
+  --color-warning:        #F3b021;
+  --color-danger:         #F12D2D;
+
+  /* Colors — Supplement */
+  --color-teal:           #3CC5CF;
+  --color-purple:         #8255E1;
+  --color-orange:         #F3b021;
+
+  /* Colors — Chart Palette (tokens.json › charts.palette) */
+  --chart-1: #53AF36;
+  --chart-2: #007BFF;
+  --chart-3: #3CC5CF;
+  --chart-4: #8255E1;
+  --chart-5: #FFB928;
+  --chart-6: #F12D2D;
+
+  /* Typography */
+  --font-cn:    "Alibaba_PuHuiTi_2.0 SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-en:    "Inter", "SF Pro", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:  "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
+
+  --font-weight-light:    300;
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* Font scale (px) */
+  --font-size-h1:         40px;
+  --font-size-h2:         32px;
+  --font-size-h3:         24px;
+  --font-size-h4:         20px;
+  --font-size-h5:         18px;
+  --font-size-body-large: 18px;
+  --font-size-body-1:     16px;
+  --font-size-body-2:     14px;
+  --font-size-body-3:     12px;
+  --font-size-caption:    11px;
+
+  /* Spacing (px) */
+  --space-xxs: 4px;
+  --space-xs:  8px;
+  --space-s:   12px;
+  --space-m:   16px;
+  --space-l:   24px;
+  --space-xl:  32px;
+  --space-xxl: 48px;
+
+  /* Border radius */
+  --radius-sm:   4px;
+  --radius-base: 6px;
+  --radius-md:   8px;
+  --radius-lg:   10px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+
+  /* Shadows */
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:      0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg:      0 4px 16px rgba(0,0,0,0.12);
+  --shadow-primary: 0 4px 15px rgba(62,201,158,0.20);
+
+  /* Layout */
+  --page-max-width:   900px;
+  --page-padding:     var(--space-xxl) var(--space-xxl);
+  --accent-bar-width: 4px;
+}
+
+/* ── Reset & Base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; font-size: 16px; }
+
+body {
+  font-family: var(--font-en);
+  color: var(--color-text-primary);
+  background: var(--color-bg-page);
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+:lang(zh), [lang="zh"], .lang-cn { font-family: var(--font-cn); }
+
+/* ── Background Utility Classes ──────────────────────────────────────────── */
+/* Three-layer background hierarchy: page > neutral > surface */
+
+.page,
+.brand-page {
+  background: var(--color-bg-page);
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+  padding: var(--page-padding);
+}
+
+.muted-section {
+  background: var(--color-bg-neutral);
+}
+
+.content-surface,
+.card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────────*/
+.brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-m);
+  border-bottom: 2px solid var(--color-primary-500);
+  margin-bottom: var(--space-xl);
+}
+
+.brand-header__logo img { height: 32px; width: auto; }
+
+.brand-header__label {
+  font-size: var(--font-size-caption);
+  color: var(--color-neutral-400);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────────*/
+.brand-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-m);
+  border-top: 1px solid var(--color-neutral-200);
+  margin-top: var(--space-xxl);
+  font-size: var(--font-size-caption);
+  color: var(--color-neutral-400);
+}
+
+/* ── Title Block ─────────────────────────────────────────────────────────── */
+.brand-title { text-align: center; margin-bottom: var(--space-xxl); }
+
+.brand-title__main {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-neutral-900);
+  line-height: 1.25;
+  margin: 0 0 var(--space-xs);
+}
+
+.brand-title__sub {
+  font-size: var(--font-size-body-2);
+  color: var(--color-neutral-400);
+  margin: 0 0 var(--space-m);
+  letter-spacing: 0.05em;
+}
+
+.brand-title__rule {
+  height: 2px;
+  background: var(--color-primary-500);
+  border: none;
+  margin: 0 auto;
+  width: 80px;
+}
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-neutral-900);
+  line-height: 1.25;
+  margin-top: var(--space-xxl);
+  margin-bottom: var(--space-l);
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-neutral-900);
+  line-height: 1.25;
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-m);
+}
+
+h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-500);
+  line-height: 1.25;
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-s);
+}
+
+h4 {
+  font-size: var(--font-size-h4);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-neutral-900);
+}
+
+p { margin: 0 0 var(--space-m); line-height: 1.5; }
+
+a { color: var(--color-secondary-500); text-decoration: none; }
+a:hover { color: var(--color-primary-500); text-decoration: underline; }
+
+/* ── Table ──────────────────────────────────────────────────────────────── */
+.brand-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-body-2);
+  margin: var(--space-l) 0;
+}
+
+.brand-table th {
+  background: var(--color-primary-500);
+  color: var(--color-bg-surface);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-s) var(--space-m);
+  text-align: left;
+  border: 1px solid var(--color-primary-600);
+  white-space: nowrap;
+}
+
+.brand-table td {
+  padding: var(--space-s) var(--space-m);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  vertical-align: top;
+}
+
+.brand-table tr:nth-child(even) td { background: var(--color-bg-neutral); }
+.brand-table tr:hover td           { background: var(--color-primary-100); }
+
+/* ── Info Table (label-value form style) ─────────────────────────────────── */
+.brand-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-l) 0;
+}
+
+.brand-info-table td {
+  padding: var(--space-s) var(--space-m);
+  border: 1px solid var(--color-border-default);
+  vertical-align: middle;
+}
+
+.brand-info-table td:first-child {
+  background: var(--color-bg-neutral);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  width: 30%;
+  text-align: center;
+}
+
+.brand-info-table tr:nth-child(odd) td:first-child { background: var(--color-primary-100); }
+
+/* ── Note / Callout Block ────────────────────────────────────────────────── */
+.brand-note {
+  border-left: var(--accent-bar-width) solid var(--color-primary-500);
+  background: var(--color-bg-neutral);
+  padding: var(--space-m) var(--space-l);
+  margin: var(--space-l) 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: var(--font-size-body-2);
+  color: var(--color-neutral-700);
+}
+
+.brand-note--warning {
+  border-left-color: var(--color-warning);
+  background: #FFF9EC;
+}
+
+.brand-note--danger {
+  border-left-color: var(--color-danger);
+  background: #FFF2F2;
+}
+
+.brand-note--warning .brand-note__label { color: var(--color-warning); }
+.brand-note--danger  .brand-note__label { color: var(--color-danger);  }
+
+.brand-note__label {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-500);
+  margin-right: var(--space-xs);
+}
+
+/* ── Code Block ──────────────────────────────────────────────────────────── */
+pre, code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--color-bg-neutral);
+  border-radius: var(--radius-sm);
+}
+
+pre {
+  padding: var(--space-m) var(--space-l);
+  overflow-x: auto;
+  border: 1px solid var(--color-border-default);
+  line-height: 1.5;
+  margin: var(--space-m) 0;
+}
+
+code { padding: 2px 6px; }
+pre code { padding: 0; background: none; }
+
+/* ── Badge / Tag ─────────────────────────────────────────────────────────── */
+.brand-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-primary-100);
+  color: var(--color-primary-500);
+  white-space: nowrap;
+}
+
+/* ── Section Divider ─────────────────────────────────────────────────────── */
+.brand-divider {
+  border: none;
+  border-top: 1px solid var(--color-neutral-200);
+  margin: var(--space-xxl) 0;
+}
+
+.brand-divider--accent { border-top: 2px solid var(--color-primary-500); }
+
+/* ── Signature Block ─────────────────────────────────────────────────────── */
+.brand-signature {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xxl);
+  margin-top: var(--space-xxl);
+  font-size: var(--font-size-body-2);
+}
+
+.brand-signature__line {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-s);
+  padding-bottom: var(--space-s);
+  border-bottom: 1px solid var(--color-neutral-200);
+  margin-bottom: var(--space-l);
+}
+
+.brand-signature__label {
+  white-space: nowrap;
+  color: var(--color-neutral-700);
+}

@@ -1,0 +1,98 @@
+/*
+ * ArktechX PDF CSS
+ * Extends templates/html/brand.css with @page rules for print / PDF output.
+ *
+ * Recommended engine: WeasyPrint
+ *   pip install weasyprint
+ *   weasyprint input.html output.pdf
+ *
+ * Or: wkhtmltopdf input.html output.pdf
+ */
+
+/* Import base brand styles */
+@import url("../html/brand.css");
+
+/* ── Page Setup ──────────────────────────────────────────────────────────── */
+@page {
+  size: A4 portrait;
+  margin: 20mm 25mm 20mm 25mm;   /* top right bottom left */
+
+  /* Header: company name left, page number right */
+  @top-left {
+    content: "未来方舟（上海）科技有限公司";
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    font-size: 9pt;
+    color: #8A9199;
+    padding-top: 4mm;
+  }
+
+  @top-right {
+    content: string(doc-type);
+    font-family: "Inter", sans-serif;
+    font-size: 9pt;
+    color: #8A9199;
+    padding-top: 4mm;
+  }
+
+  @bottom-left {
+    content: "本文件仅供指定用途使用";
+    font-size: 8pt;
+    color: #8A9199;
+    font-style: italic;
+  }
+
+  @bottom-right {
+    content: "第 " counter(page) " 页 / 共 " counter(pages) " 页";
+    font-size: 8pt;
+    color: #8A9199;
+  }
+
+  /* Page-level decorative top rule */
+  border-top: 2px solid #3EC99E;
+}
+
+/* First page: suppress header, show logo instead */
+@page :first {
+  @top-left { content: ""; }
+  @top-right { content: ""; }
+}
+
+/* ── PDF-specific overrides ──────────────────────────────────────────────── */
+
+/* Capture doc-type string for page header */
+.brand-header__label {
+  string-set: doc-type content();
+}
+
+/* Remove screen-only header/footer — PDF uses @page ones */
+.brand-header,
+.brand-footer {
+  display: none;
+}
+
+/* Ensure page wrapper has no extra padding (margins handled by @page) */
+.brand-page {
+  max-width: none;
+  padding: 0;
+}
+
+/* Page breaks */
+h1, h2 { page-break-before: auto; }
+h1      { page-break-after:  avoid; }
+h2, h3  { page-break-after:  avoid; }
+
+.brand-table { page-break-inside: avoid; }
+.brand-note  { page-break-inside: avoid; }
+.brand-signature { page-break-inside: avoid; }
+
+/* Prevent orphaned lines */
+p { orphans: 3; widows: 3; }
+
+/* ── Print color adjustments ─────────────────────────────────────────────── */
+/* Ensure background colors print (some browsers skip by default) */
+.brand-table th,
+.brand-info-table td:first-child,
+.brand-note {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
