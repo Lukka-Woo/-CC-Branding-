@@ -231,8 +231,7 @@ def _add_logo_stacked(slide, reverse=True, l_mm=12, t_mm=10, h_mm=26):
 # ── Composite helpers: header / footer / card ─────────────────────────────────
 
 def _header(slide, title, subtitle="", label=""):
-    """Standard page header: green bar + title + optional subtitle + rule."""
-    _rect(slide, l=0, t=0, w=SLIDE_W, h=Mm(2.5), fill=BT.PRIMARY_500_HEX)
+    """Standard page header: title + optional subtitle + rule."""
     y_title = Mm(5.5) if not label else Mm(11)
     if label:
         _txb(slide, label, l=ML, t=Mm(4.5), w=Mm(80), h=Mm(6),
@@ -416,12 +415,7 @@ class BrandPptx:
         """
         slide = self._new_slide()
 
-        # Gradient background via two-color rects (primary → primary-600)
         _rect(slide, l=0, t=0, w=SLIDE_W, h=SLIDE_H, fill=BT.PRIMARY_500_HEX)
-
-        # Subtle overlay strip on right side for depth
-        _rect(slide, l=SLIDE_W * 0.72, t=0, w=SLIDE_W * 0.28, h=SLIDE_H,
-              fill=BT.SUCCESS_HEX)
 
         if chapter_num:
             _txb(slide, chapter_num,
@@ -433,10 +427,6 @@ class BrandPptx:
              l=ML, t=Mm(78), w=SLIDE_W - 2*ML, h=Mm(44),
              sz=38, bold=True, color=BT.WHITE_HEX, align=PP_ALIGN.CENTER,
              ls_pt=46)
-
-        # Bottom strip (secondary color)
-        _rect(slide, l=0, t=SLIDE_H - Mm(4), w=SLIDE_W, h=Mm(4),
-              fill=BT.SECONDARY_500_HEX)
 
         # Logo reversed bottom-right
         _add_logo_stacked(slide, reverse=True,

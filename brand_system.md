@@ -2,16 +2,18 @@
 
 ## 定位
 
-公司名：未来方舟（上海）科技有限公司
+公司名：上海未来方舟智能科技有限公司  
 公司英文名：Arksus
 
 面向企业客户的 AI 智能化解决方案。视觉传达专业、可信、可持续——像咨询公司与科技公司的交集。
 
-| 维度 | 定位 |
-|------|------|
-| 情感 | 冷静、理性、有温度 |
-| 视觉 | 极简、克制、几何秩序感 |
-| 隐喻 | 数据流、低碳循环、安全边界 |
+
+| 维度  | 定位            |
+| --- | ------------- |
+| 情感  | 冷静、理性、有温度     |
+| 视觉  | 极简、克制、几何秩序感   |
+| 隐喻  | 数据流、低碳循环、安全边界 |
+
 
 ### 关键词
 
@@ -29,16 +31,18 @@
 
 ## 文件映射
 
-| 文件 | 职责 |
-|------|------|
-| `tokens.json` | 色彩 / 字体 / 间距 / 圆角 / 阴影等全部设计令牌 |
-| `assets/logo-horizontal-primary.svg` | 横向 Logo，浅色背景使用 |
-| `assets/logo-horizontal-reverse.svg` | 横向 Logo，深色背景使用 |
-| `assets/logo-stacked-primary.svg` |  stacked Logo，浅色背景使用 |
-| `assets/logo-stacked-reverse.svg` |  stacked Logo，深色背景使用 |
-| `templates/pptx/brand-master.pptx` | PPT 封面/内页/过渡页版式 |
-| `templates/docx/proposal-template.docx` | 提案文档标题/正文/表格样式 |
-| `templates/pdf/brand.css` | PDF 输出的页眉页脚/分页/排版 |
+
+| 文件                                      | 职责                            |
+| --------------------------------------- | ----------------------------- |
+| `tokens.json`                           | 色彩 / 字体 / 间距 / 圆角 / 阴影等全部设计令牌 |
+| `assets/logo-horizontal-primary.svg`    | 横向 Logo，浅色背景使用                |
+| `assets/logo-horizontal-reverse.svg`    | 横向 Logo，深色背景使用                |
+| `assets/logo-stacked-primary.svg`       | stacked Logo，浅色背景使用           |
+| `assets/logo-stacked-reverse.svg`       | stacked Logo，深色背景使用           |
+| `templates/pptx/brand-master.pptx`      | PPT 封面/内页/过渡页版式               |
+| `templates/docx/proposal-template.docx` | 提案文档标题/正文/表格样式                |
+| `templates/pdf/brand.css`               | PDF 输出的页眉页脚/分页/排版             |
+
 
 ## Logo System
 
@@ -49,10 +53,12 @@ We have two logo layouts and two color variants.
 #### Horizontal Logo
 
 Files:
+
 - `logo-horizontal-primary.svg`
 - `logo-horizontal-reverse.svg`
 
 Use the horizontal logo in compact horizontal spaces:
+
 - page headers
 - page footers
 - PPT slide footer
@@ -65,10 +71,12 @@ Do not use the horizontal logo as the main hero logo on covers or section divide
 #### Stacked Logo
 
 Files:
+
 - `logo-stacked-primary.svg`
 - `logo-stacked-reverse.svg`
 
 Use the stacked logo in large brand emphasis areas:
+
 - cover pages
 - section divider pages
 - closing pages
@@ -81,6 +89,7 @@ Do not use the stacked logo in footers, headers, or tight horizontal spaces.
 #### Primary
 
 Use `primary` logos on:
+
 - white background
 - light background
 - light gray background
@@ -89,6 +98,7 @@ Use `primary` logos on:
 #### Reverse
 
 Use `reverse` logos on:
+
 - dark background
 - brand primary color background
 - black background
@@ -98,10 +108,12 @@ Use `reverse` logos on:
 ### Selection Rule
 
 First choose layout by space:
+
 - compact horizontal area → horizontal
 - large brand emphasis area → stacked
 
 Then choose color variant by background:
+
 - light background → primary
 - dark background → reverse
 
@@ -113,5 +125,5 @@ Then choose color variant by background:
 - **图形**：仅使用圆角矩形（rounded corners 一致）、极细线框、几何噪声背景
 - **插图**：抽象几何构成，不使用具象人物/物体插画
 
-
 > 各模板的具体实现以对应文件为准，本规范不做重复详述。
+
