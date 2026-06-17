@@ -1,11 +1,68 @@
 /*
  * ArktechX Brand CSS
  * Source of truth: tokens.json
- * Usage: <link rel="stylesheet" href="../templates/html/brand.css">
+ * Usage: <link rel="stylesheet" href="../../../templates/html/brand.css">
  *
  * All brand colors are exposed as CSS custom properties.
  * Use var(--color-primary-500) — never hard-code hex values.
  */
+
+/* ── @font-face — Alibaba PuHuiTi 2.0（9 字重）─────────────────────────────────────────────────────── */
+/* 路径相对于此 CSS 文件位置：templates/html/ → ../../fonts/alibaba-puhuiti/  */
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 250;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_35_Thin_35_Thin.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 300;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_45_Light_45_Light.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 400;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_55_Regular_55_Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 500;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_65_Medium_65_Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 600;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_75_SemiBold_75_SemiBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 700;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_55_Regular_85_Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 800;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_95_ExtraBold_95_ExtraBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 900;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_105_Heavy_105_Heavy.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Alibaba PuHuiTi 2.0";
+  font-weight: 1000;
+  font-style: normal;
+  src: url("../../fonts/alibaba-puhuiti/Alibaba_PuHuiTi_2.0_115_Black_115_Black.ttf") format("truetype");
+}
 
 /* ── CSS Custom Properties (Design Tokens) ─────────────────────────────────── */
 :root {
@@ -59,7 +116,7 @@
   --chart-6: #F12D2D;
 
   /* Typography */
-  --font-cn:    "Alibaba_PuHuiTi_2.0 SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-cn:    "Alibaba PuHuiTi 2.0", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --font-en:    "Inter", "SF Pro", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono:  "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
 

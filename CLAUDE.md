@@ -183,10 +183,12 @@ report = os.path.join(_GEN, "reports", "compliance_report.html")
 
 ### 字体
 ```
-中文：Alibaba_PuHuiTi_2.0 SC / PingFang SC / Microsoft YaHei / Noto Sans SC
+中文：Alibaba PuHuiTi 2.0（首选）/ PingFang SC / Microsoft YaHei / Noto Sans SC
 英文：Inter / SF Pro
 代码：JetBrains Mono
 ```
+字体文件统一放在 `fonts/alibaba-puhuiti/`（随项目分发）。
+PPTX/DOCX 写入字体名 `"Alibaba PuHuiTi 2.0"`；HTML/PDF 通过 `@font-face` 加载本地文件。
 
 ### 页面（DOCX A4）
 ```
@@ -244,19 +246,43 @@ prs.save(os.path.join(_DOCS, "output.pptx"))
 // projects/{name}/jobs/render.mjs
 import puppeteer from 'puppeteer';
 import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// 往上三级到根目录，再定位字体目录
+const FONTS_DIR = path.resolve(__dirname, '..', '..', '..', 'fonts', 'alibaba-puhuiti');
 
 const browser = await puppeteer.launch({
   headless: true,
   executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  args: ['--no-sandbox'],
+  args: ['--no-sandbox', '--allow-file-access-from-files'],
 });
 const page = await browser.newPage();
+
+// 注入本地字体（必须在 setContent 之前，确保 @font-face 生效）
+await page.addStyleTag({ content: `
+  @font-face { font-family:"Alibaba PuHuiTi 2.0"; font-weight:100;
+    src:url("file://${FONTS_DIR}/Alibaba_PuHuiTi_2.0_35_Thin_35_Thin.ttf") format("truetype"); }
+  @font-face { font-family:"Alibaba PuHuiTi 2.0"; font-weight:300;
+    src:url("file://${FONTS_DIR}/Alibaba_PuHuiTi_2.0_45_Light_45_Light.ttf") format("truetype"); }
+  @font-face { font-family:"Alibaba PuHuiTi 2.0"; font-weight:400;
+    src:url("file://${FONTS_DIR}/Alibaba_PuHuiTi_2.0_55_Regular_55_Regular.ttf") format("truetype"); }
+  @font-face { font-family:"Alibaba PuHuiTi 2.0"; font-weight:700;
+    src:url("file://${FONTS_DIR}/Alibaba_PuHuiTi_2.0_55_Regular_85_Bold.ttf") format("truetype"); }
+  @font-face { font-family:"Alibaba PuHuiTi 2.0"; font-weight:500;
+    src:url("file://${FONTS_DIR}/Alibaba_PuHuiTi_2.0_65_Medium_65_Medium.ttf") format("truetype"); }
+  @font-face { font-family:"Alibaba PuHuiTi 2.0"; font-weight:600;
+    src:url("file://${FONTS_DIR}/Alibaba_PuHuiTi_2.0_75_SemiBold_75_SemiBold.ttf") format("truetype"); }
+  @font-face { font-family:"Alibaba PuHuiTi 2.0"; font-weight:800;
+    src:url("file://${FONTS_DIR}/Alibaba_PuHuiTi_2.0_95_ExtraBold_95_ExtraBold.ttf") format("truetype"); }
+  @font-face { font-family:"Alibaba PuHuiTi 2.0"; font-weight:900;
+    src:url("file://${FONTS_DIR}/Alibaba_PuHuiTi_2.0_105_Heavy_105_Heavy.ttf") format("truetype"); }
+` });
+
 await page.setContent(readFileSync(SRC, 'utf8'), { waitUntil: 'networkidle0' });
-await page.addStyleTag({
-  url: 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap'
-});
 await page.evaluateHandle('document.fonts.ready');
-await new Promise(r => setTimeout(r, 2500));
+await new Promise(r => setTimeout(r, 1500));
 await page.pdf({
   path: DEST, width: '297mm', height: '210mm',
   printBackground: true,
@@ -270,6 +296,9 @@ Puppeteer 依赖安装（仅首次）：
 ```bash
 cd /tmp/pdf-gen && npm install puppeteer
 ```
+
+> **字体注入说明**：用 `file://` 绝对路径注入 `@font-face`，在 `setContent` 之前执行，
+> 避免 Puppeteer 无 baseURL 时相对路径失效。不再依赖 Google Fonts 网络请求。
 
 ---
 

@@ -1,7 +1,12 @@
 {
-  "active": "智慧培训",
+  "active": "CBAM",
 
   "projects": {
+    "CBAM": {
+      "name": "CBAM 碳边境调节机制客户演示",
+      "description": "向出口型制造企业高管介绍 CBAM 政策影响与应对策略的商务演示文稿",
+      "created": "2026-06-16"
+    },
     "智慧培训": {
       "name": "智慧培训解决方案",
       "description": "面向企业客户的智慧培训平台商务建议书与方案文档",

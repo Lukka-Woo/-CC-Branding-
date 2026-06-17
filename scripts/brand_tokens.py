@@ -115,9 +115,10 @@ def pptx_rgb(hex_color: str):
     return RGBColor(r, g, b)
 
 # ── Typography ────────────────────────────────────────────────────────────────
-FONT_CN     = "PingFang SC"
-FONT_CN_FB  = "Microsoft YaHei"
-FONT_CN_WEB = "Noto Sans SC"
+FONT_CN     = "Alibaba PuHuiTi 2.0"   # 系统家族名（无下划线）
+FONT_CN_FB  = "PingFang SC"           # 降级备用：Mac 自带
+FONT_CN_FB2 = "Microsoft YaHei"       # 降级备用：Windows
+FONT_CN_WEB = "Noto Sans SC"          # 降级备用：Web Google Fonts
 FONT_EN     = "Inter"
 FONT_MONO   = "JetBrains Mono"
 
