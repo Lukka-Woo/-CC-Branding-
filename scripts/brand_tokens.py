@@ -206,6 +206,25 @@ SPACING_S_MM   = _T["spacing"]["s"]   * 0.265
 SPACING_M_MM   = _T["spacing"]["m"]   * 0.265
 SPACING_L_MM   = _T["spacing"]["l"]   * 0.265
 
+# ── Radius (mm) — PPTX / DOCX 物理尺寸文档专用 ───────────────────────────────
+# tokens.json › radiusMm（px 单位的 radiusPx 节仅用于 HTML/CSS）
+# 用法：_card(..., radius_mm=BT.RADIUS_SM_MM)
+RADIUS_XS_MM   = _T["radiusMm"]["xs"]    # 2mm  细节圆角（角标、小装饰点）
+RADIUS_SM_MM   = _T["radiusMm"]["sm"]    # 4mm  ★ 默认：所有普通卡片、按钮
+RADIUS_MD_MM   = _T["radiusMm"]["md"]    # 6mm  大卡片、面板（备用）
+RADIUS_LG_MM   = _T["radiusMm"]["lg"]    # 8mm  外层大容器 / 图片占位区块
+RADIUS_PILL_MM = _T["radiusMm"]["pill"]  # 9999 胶囊标签 / 序号徽章 / 圆形点
+
+# ── 圆角层级（官方推荐搭配）────────────────────────────────────────────────────
+# 同一页面建议遵循以下层级，最多两档混用：
+#
+#   外层容器  RADIUS_LG_MM   (8mm)  → 大面板、图片区块、背景容器
+#   内层卡片  RADIUS_SM_MM   (4mm)  → 所有普通卡片（三卡/六卡/统计卡）★ 默认值
+#   胶囊元素  RADIUS_PILL_MM  (∞)   → 状态徽章、分类标签、序号圆点
+#   微小元素  RADIUS_XS_MM   (2mm)  → 角标、小装饰点（谨慎使用）
+#
+# 禁止在同一页面混用三档或以上圆角。
+
 # ── Table colors ──────────────────────────────────────────────────────────────
 TABLE_HEADER_BG  = _T["media"]["docx"]["tableHeaderBg"]
 TABLE_HEADER_FG  = _T["media"]["docx"]["tableHeaderColor"]

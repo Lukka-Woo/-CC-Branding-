@@ -74,9 +74,28 @@ TITLE_GRADIENT = [
 
 # ── Low-level primitives ──────────────────────────────────────────────────────
 
-def _rect(slide, l, t, w, h, fill=None, line=None, lw_pt=0.75, rounded=False):
-    sid = 5 if rounded else 1
-    s = slide.shapes.add_shape(sid, int(l), int(t), int(w), int(h))
+def _apply_radius(shape, radius_mm, w, h):
+    """Set rounded-rect adj on an existing shape from an absolute mm radius.
+    radius_mm=BT.RADIUS_PILL_MM renders as a full circle/capsule."""
+    geom = shape._element.find(qn("p:spPr")).find(qn("a:prstGeom"))
+    if geom is None:
+        return
+    avLst = geom.find(qn("a:avLst"))
+    if avLst is None:
+        avLst = etree.SubElement(geom, qn("a:avLst"))
+    gd = avLst.find(qn("a:gd"))
+    if gd is None:
+        gd = etree.SubElement(avLst, qn("a:gd"))
+    gd.set("name", "adj")
+    adj_val = min(50000, int(radius_mm * 36000 / min(w, h) * 100000))
+    gd.set("fmla", f"val {adj_val}")
+
+
+def _rect(slide, l, t, w, h, fill=None, line=None, lw_pt=0.75, radius_mm=0):
+    """Plain rectangle. radius_mm > 0 → rounded rect with absolute mm corner radius."""
+    s = slide.shapes.add_shape(5 if radius_mm > 0 else 1, int(l), int(t), int(w), int(h))
+    if radius_mm > 0:
+        _apply_radius(s, radius_mm, int(w), int(h))
     if fill:
         s.fill.solid()
         s.fill.fore_color.rgb = _rgb(fill)
@@ -255,22 +274,16 @@ def _footer(slide, layout_label=""):
              sz=8, color=BT.NEUTRAL_200_HEX, align=PP_ALIGN.RIGHT)
 
 
-def _card(slide, l, t, w, h, bg=None, border=None, rounded=True):
-    """Card-shaped rectangle. No border by default."""
+def _card(slide, l, t, w, h, bg=None, border=None, radius_mm=None):
+    """Card-shaped rounded rectangle. radius_mm=None → BT.RADIUS_SM_MM (4mm)."""
     if bg is None:
         bg = BT.NEUTRAL_100_HEX
-    s = slide.shapes.add_shape(5 if rounded else 1, int(l), int(t), int(w), int(h))
-    if rounded:
-        adj = s._element.find(qn("p:spPr")).find(qn("a:prstGeom"))
-        if adj is not None:
-            avLst = adj.find(qn("a:avLst"))
-            if avLst is None:
-                avLst = etree.SubElement(adj, qn("a:avLst"))
-            gd = avLst.find(qn("a:gd"))
-            if gd is None:
-                gd = etree.SubElement(avLst, qn("a:gd"))
-            gd.set("name", "adj")
-            gd.set("fmla", "val 20000")
+    if radius_mm is None:
+        radius_mm = BT.RADIUS_SM_MM
+    use_round = radius_mm > 0
+    s = slide.shapes.add_shape(5 if use_round else 1, int(l), int(t), int(w), int(h))
+    if use_round:
+        _apply_radius(s, radius_mm, int(w), int(h))
     s.fill.solid()
     s.fill.fore_color.rgb = _rgb(bg)
     if border:
@@ -285,6 +298,16 @@ def _is_numeric_val(s: str) -> bool:
     """True if value text is already a standalone number (e.g. '01', '8').
     When True, the sequence-number badge is suppressed to avoid duplication."""
     return bool(re.fullmatch(r'\d+', s.strip()))
+
+
+def _seq_badge(slide, x, y, seq: int, color: str, size_mm: float = 9):
+    """Pill circle sequence badge (top-right corner of stat cards)."""
+    s = Mm(size_mm)
+    _rect(slide, l=x, t=y, w=s, h=s, fill=color, radius_mm=BT.RADIUS_PILL_MM)
+    _txb(slide, f"{seq:02d}",
+         l=x, t=y + Mm(0.5), w=s, h=s - Mm(1),
+         sz=int(size_mm * 0.9), bold=True, color=BT.WHITE_HEX,
+         align=PP_ALIGN.CENTER)
 
 
 # ── BrandPptx ─────────────────────────────────────────────────────────────────
@@ -770,10 +793,9 @@ class BrandPptx:
                           bg=CARD_BGS[i % len(CARD_BGS)])
 
                     if not _is_numeric_val(val):
-                        _txb(slide, f"{i+1:02d}",
-                             l=x + card_w - Mm(13), t=y + Mm(4),
-                             w=Mm(11), h=Mm(6),
-                             sz=10, bold=True, color=vc, align=PP_ALIGN.RIGHT)
+                        _seq_badge(slide,
+                                   x=x + card_w - Mm(13), y=y + Mm(4),
+                                   seq=i + 1, color=vc)
 
                     _txb(slide, val,
                          l=x + Mm(6), t=y + Mm(8),
@@ -817,10 +839,9 @@ class BrandPptx:
                           bg=BT.WHITE_HEX, border=BT.BORDER_DEFAULT_HEX)
 
                     if not _is_numeric_val(val):
-                        _txb(slide, f"{i+1:02d}",
-                             l=x + card_w - Mm(13), t=y + Mm(4),
-                             w=Mm(11), h=Mm(6),
-                             sz=10, bold=True, color=vc, align=PP_ALIGN.RIGHT)
+                        _seq_badge(slide,
+                                   x=x + card_w - Mm(13), y=y + Mm(4),
+                                   seq=i + 1, color=vc)
 
                     _txb(slide, val,
                          l=x + Mm(6), t=y + Mm(8),
@@ -954,11 +975,11 @@ class BrandPptx:
             _rect(slide,
                   l=cx - dot_r - Mm(1), t=dot_y - Mm(1),
                   w=(dot_r + Mm(1)) * 2, h=(dot_r + Mm(1)) * 2,
-                  fill=BT.WHITE_HEX, rounded=True)
+                  fill=BT.WHITE_HEX, radius_mm=BT.RADIUS_PILL_MM)
             _rect(slide,
                   l=cx - dot_r, t=dot_y,
                   w=dot_r * 2, h=dot_r * 2,
-                  fill=ac, rounded=True)
+                  fill=ac, radius_mm=BT.RADIUS_PILL_MM)
 
             # Period label — above spine
             _txb(slide, period,
@@ -1148,7 +1169,7 @@ class BrandPptx:
         else:
             _card(slide, img_l, int(CONTENT_Y + Mm(6)),
                   img_w, int(CONTENT_H - Mm(8)),
-                  bg=BT.PRIMARY_100_HEX)
+                  bg=BT.PRIMARY_100_HEX, radius_mm=BT.RADIUS_LG_MM)
         return slide
 
     def add_image_left_text(self,
@@ -1174,6 +1195,7 @@ class BrandPptx:
         else:
             _card(slide, int(ML), int(CONTENT_Y + Mm(6)),
                   img_w, int(CONTENT_H - Mm(8)),
+                  radius_mm=BT.RADIUS_LG_MM,
                   bg=BT.PRIMARY_100_HEX)
 
         _txb(slide, body_text,
@@ -1260,7 +1282,7 @@ class BrandPptx:
             arr_x = cx + Mm(81.4)
             arr_y = cy + Mm(14.6)
             _rect(slide, l=arr_x, t=arr_y, w=Mm(6.3), h=Mm(6.3),
-                  fill=arr_bg, rounded=True)
+                  fill=arr_bg, radius_mm=BT.RADIUS_XS_MM)
             _txb(slide, "→", l=arr_x, t=arr_y + Mm(0.5), w=Mm(6.3), h=Mm(5),
                  sz=8, bold=True, color=arr_c, align=PP_ALIGN.CENTER)
 
@@ -1493,7 +1515,7 @@ class BrandPptx:
                 accent = it.get("accent", BT.PRIMARY_500_HEX)
                 # Accent dot
                 _rect(slide, l=PANEL_X + Mm(9), t=iy,
-                      w=Mm(8.5), h=Mm(8.5), fill=accent, rounded=True)
+                      w=Mm(8.5), h=Mm(8.5), fill=accent, radius_mm=BT.RADIUS_PILL_MM)
                 # Item label
                 _txb(slide, it.get("label", ""),
                      l=PANEL_X + Mm(20), t=iy, w=PANEL_W - Mm(22), h=Mm(5),
