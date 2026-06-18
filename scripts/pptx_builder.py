@@ -25,6 +25,7 @@ Gradient title note:
 """
 
 import os
+import re
 from typing import List, Optional, Tuple, Dict, Any
 import scripts.brand_tokens as BT
 
@@ -255,11 +256,9 @@ def _footer(slide, layout_label=""):
 
 
 def _card(slide, l, t, w, h, bg=None, border=None, rounded=True):
-    """Card-shaped rectangle. Default: light surface + subtle border."""
+    """Card-shaped rectangle. No border by default."""
     if bg is None:
         bg = BT.NEUTRAL_100_HEX
-    if border is None:
-        border = BT.NEUTRAL_200_HEX
     s = slide.shapes.add_shape(5 if rounded else 1, int(l), int(t), int(w), int(h))
     if rounded:
         adj = s._element.find(qn("p:spPr")).find(qn("a:prstGeom"))
@@ -274,9 +273,18 @@ def _card(slide, l, t, w, h, bg=None, border=None, rounded=True):
             gd.set("fmla", "val 20000")
     s.fill.solid()
     s.fill.fore_color.rgb = _rgb(bg)
-    s.line.color.rgb = _rgb(border)
-    s.line.width = Pt(0.75)
+    if border:
+        s.line.color.rgb = _rgb(border)
+        s.line.width = Pt(0.75)
+    else:
+        s.line.fill.background()
     return s
+
+
+def _is_numeric_val(s: str) -> bool:
+    """True if value text is already a standalone number (e.g. '01', '8').
+    When True, the sequence-number badge is suppressed to avoid duplication."""
+    return bool(re.fullmatch(r'\d+', s.strip()))
 
 
 # ── BrandPptx ─────────────────────────────────────────────────────────────────
@@ -534,41 +542,45 @@ class BrandPptx:
         card_top = CONTENT_Y + Mm(6)
         card_h   = CONTENT_H - Mm(6)
 
-        card_colors = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, "#F8FBE7"]
-        border_colors = ["#B8EDD8", BT.NEUTRAL_200_HEX, "#DBE89A"]
+        card_colors   = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, "#F8FBE7"]
         accent_colors = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX]
 
         for i, c in enumerate(cards[:3]):
-            x = ML + i * (C3_W + C3_GAP)
-            _card(slide, l=x, t=card_top, w=C3_W, h=card_h,
-                  bg=card_colors[i % 3], border=border_colors[i % 3])
+            x       = ML + i * (C3_W + C3_GAP)
+            is_dark = c.get("dark", False)
+            bg      = "#161F1D" if is_dark else card_colors[i % 3]
+            _card(slide, l=x, t=card_top, w=C3_W, h=card_h, bg=bg)
 
-            # Top accent strip
-            _rect(slide, l=x, t=card_top, w=C3_W, h=Mm(3),
-                  fill=accent_colors[i % 3])
+            inner_l    = x + Mm(5)
+            inner_w    = C3_W - Mm(10)
+            y_off      = card_top + Mm(6)
+            tag_color  = BT.SECONDARY_500_HEX if is_dark else accent_colors[i % 3]
+            txt_color  = BT.WHITE_HEX         if is_dark else BT.NEUTRAL_900_HEX
+            body_color = "#8A9199"             if is_dark else BT.NEUTRAL_700_HEX
 
-            inner_l = x + Mm(5)
-            inner_w = C3_W - Mm(10)
-            y_off   = card_top + Mm(8)
-
-            # Optional tag
+            # Optional tag / eyebrow
             tag = c.get("tag", "")
             if tag:
-                _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(8),
-                     sz=9, bold=True, color=accent_colors[i % 3])
-                y_off += Mm(9)
+                _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(7),
+                     sz=9, bold=True, color=tag_color)
+                y_off += Mm(8)
 
-            # Card title — h=Mm(24) handles 2-line titles at sz=16
+            # Card title
             _txb(slide, c.get("title", ""),
                  l=inner_l, t=y_off, w=inner_w, h=Mm(24),
-                 sz=16, bold=True, color=BT.NEUTRAL_900_HEX)
-            y_off += Mm(26)
+                 sz=16, bold=True, color=txt_color)
+            y_off += Mm(25)
 
-            # Card body — auto_size shrinks font to fit, never clips
+            # Accent bar — inside card, below title
+            _rect(slide, l=inner_l, t=y_off, w=Mm(28), h=Mm(1),
+                  fill=tag_color)
+            y_off += Mm(5)
+
+            # Card body
             body_tb = _txb(slide, c.get("body", ""),
                            l=inner_l, t=y_off, w=inner_w,
                            h=card_h - (y_off - card_top) - Mm(6),
-                           sz=13, color=BT.NEUTRAL_700_HEX, ls_pt=18)
+                           sz=13, color=body_color, ls_pt=18)
             body_tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
         return slide
@@ -593,41 +605,52 @@ class BrandPptx:
         PAD_TOP = Mm(4)
         card_h  = (CONTENT_H - PAD_TOP - ROW_GAP) // 2
 
-        card_colors   = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, "#F8FBE7"]
-        border_colors = ["#B8EDD8", BT.NEUTRAL_200_HEX, "#DBE89A"]
-        accent_colors = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX]
+        # ── Canonical 6-slot card palette (semantic rules apply everywhere) ──────
+        # Slot 1 gray  (#F2F3F5):  safe/supplementary → value text ONLY SUCCESS_HEX
+        # Slot 3 orange (#FFF1DF): high-risk/warning  → bg+accent match P10 template
+        # dark card (#161F1D):     danger/standout     → SECONDARY_500 + white text
+        card_colors   = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, "#F8FBE7",
+                         "#FFF1DF",           "#E0F7FA",           "#F0E8FF"]
+        accent_colors = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX,
+                         BT.WARNING_HEX,      "#3CC5CF",           "#8255E1"]
 
         for i, c in enumerate(cards[:6]):
-            col = i % 3
-            row = i // 3
-            x   = ML + col * (C3_W + C3_GAP)
-            y   = CONTENT_Y + PAD_TOP + row * (card_h + ROW_GAP)
+            col     = i % 3
+            row     = i // 3
+            x       = ML + col * (C3_W + C3_GAP)
+            y       = CONTENT_Y + PAD_TOP + row * (card_h + ROW_GAP)
+            is_dark = c.get("dark", False)
+            bg      = "#161F1D" if is_dark else card_colors[i % 6]
+            acc     = BT.SECONDARY_500_HEX if is_dark else accent_colors[i % 6]
 
-            _card(slide, l=x, t=y, w=C3_W, h=card_h,
-                  bg=card_colors[col % 3], border=border_colors[col % 3])
-            _rect(slide, l=x, t=y, w=C3_W, h=Mm(2.5),
-                  fill=accent_colors[col % 3])
+            _card(slide, l=x, t=y, w=C3_W, h=card_h, bg=bg)
 
-            inner_l = x + Mm(4)
-            inner_w = C3_W - Mm(8)
-            y_off   = y + Mm(6)
+            inner_l    = x + Mm(4)
+            inner_w    = C3_W - Mm(8)
+            y_off      = y + Mm(5)
+            txt_color  = BT.WHITE_HEX if is_dark else BT.NEUTRAL_900_HEX
+            body_color = "#8A9199"    if is_dark else BT.NEUTRAL_700_HEX
 
             tag = c.get("tag", "")
             if tag:
                 _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(7),
-                     sz=8, bold=True, color=accent_colors[col % 3])
+                     sz=8, bold=True, color=acc)
                 y_off += Mm(8)
 
             _txb(slide, c.get("title", ""),
                  l=inner_l, t=y_off, w=inner_w, h=Mm(16),
-                 sz=14, bold=True, color=BT.NEUTRAL_900_HEX)
-            y_off += Mm(18)
+                 sz=14, bold=True, color=txt_color)
+            y_off += Mm(17)
+
+            # Accent bar — inside card, below title
+            _rect(slide, l=inner_l, t=y_off, w=Mm(22), h=Mm(0.8), fill=acc)
+            y_off += Mm(4)
 
             body_h = card_h - (y_off - y) - Mm(4)
             if body_h > Mm(8):
                 body_tb = _txb(slide, c.get("body", ""),
                                l=inner_l, t=y_off, w=inner_w, h=body_h,
-                               sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+                               sz=11, color=body_color, ls_pt=16)
                 body_tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
         return slide
@@ -637,63 +660,164 @@ class BrandPptx:
     def add_big_stats(self,
                       title: str,
                       stats: List[Tuple[str, str, str]],
-                      subtitle: str = ""):
+                      subtitle: str = "",
+                      colorful=None):
         """
-        2×2 stats grid.
+        Stats card grid.
+        colorful=None (auto): ≤4 items → 2-col colorful; 5+ items → 2-row neutral
+        colorful=True:  force colorful (best for short/consistent content, supports ≤6)
+        colorful=False: force neutral white+gray border (for long/variable content)
         stats: [("98%", "准确率", "核算自动化"), ...]  → (value, label, desc)
-        Supports 2 or 4 stats. Values get gradient text treatment.
+
+        Card semantic system (applies to all card-based slides):
+          green  #EAFAF5: standard/feature      → PRIMARY_500 text
+          gray   #F2F3F5: safe/supplementary    → SUCCESS_HEX text ONLY (#5CC13C)
+          ygreen #F8FBE7: innovation/opportunity → SECONDARY_500 text
+          orange #FFF1DF: high-risk/caution     → WARNING_HEX text (per P10 template)
+          teal   #E0F7FA: expansion/eco         → #3CC5CF text
+          purple #F0E8FF: strategic/special     → #8255E1 text
+          dark   #161F1D: danger/standout       → SECONDARY_500 (#C8E13C) + white label
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
         _header(slide, title, subtitle=subtitle)
         _footer(slide)
 
-        stats = stats[:4]
-        cols   = 2 if len(stats) <= 2 else 2
-        rows   = (len(stats) + cols - 1) // cols
+        stats = list(stats[:8])
+        n     = len(stats)
 
-        gap    = Mm(8)
-        card_w = (CW - gap) // 2
-        card_h = (CONTENT_H - gap - Mm(6)) // rows
+        # Unified palette — slot index maps bg ↔ value-color as a pair
+        CARD_BGS = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, "#F8FBE7",     "#FFF1DF",
+                    "#E0F7FA",           "#F0E8FF",
+                    BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX]
+        VAL_COLS = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX, BT.WARNING_HEX,
+                    "#3CC5CF",           "#8255E1",
+                    BT.PRIMARY_500_HEX, BT.SUCCESS_HEX]
 
-        card_bgs    = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX,
-                       BT.NEUTRAL_100_HEX, "#F8FBE7"]
-        card_border = ["#B8EDD8", BT.NEUTRAL_200_HEX,
-                       BT.NEUTRAL_200_HEX, "#DBE89A"]
-        # Solid value colors — same family as card bg, higher saturation for contrast
-        val_colors  = [BT.PRIMARY_500_HEX,   # teal-100 bg → teal-500
-                       BT.NEUTRAL_900_HEX,   # gray-100 bg → near-black
-                       BT.NEUTRAL_900_HEX,   # gray-100 bg → near-black
-                       BT.SUCCESS_HEX]       # yellow-green bg → success green
+        # colorful=True only makes visual sense for ≤6 items
+        if colorful is None:
+            use_color = (n <= 4)
+        else:
+            use_color = bool(colorful) and (n <= 6)
 
-        for i, (val, label, desc) in enumerate(stats):
-            col = i % 2
-            row = i // 2
-            x   = ML + col * (card_w + gap)
-            y   = CONTENT_Y + Mm(6) + row * (card_h + gap)
+        if use_color and n <= 4:
+            # ── 2-column colorful layout (≤4 items, no sequence numbers) ──
+            rows   = (n + 1) // 2
+            gap    = Mm(8)
+            card_w = (CW - gap) // 2
+            card_h = (CONTENT_H - (rows - 1) * gap - Mm(6)) // rows
 
-            _card(slide, l=x, t=y, w=card_w, h=card_h,
-                  bg=card_bgs[i], border=card_border[i])
+            for i, (val, label, desc) in enumerate(stats):
+                col = i % 2
+                row = i // 2
+                x   = ML + col * (card_w + gap)
+                y   = CONTENT_Y + Mm(6) + row * (card_h + gap)
+                vc  = VAL_COLS[i % len(VAL_COLS)]
 
-            # Value — solid color (gradient reserved for covers/section/closing)
-            _txb(slide, val,
-                 l=x + Mm(6), t=y + Mm(8),
-                 w=card_w - Mm(12), h=Mm(28),
-                 sz=44, bold=True, align=PP_ALIGN.LEFT,
-                 color=val_colors[i])
+                _card(slide, l=x, t=y, w=card_w, h=card_h,
+                      bg=CARD_BGS[i % len(CARD_BGS)])
 
-            # Label
-            _txb(slide, label,
-                 l=x + Mm(6), t=y + Mm(37),
-                 w=card_w - Mm(12), h=Mm(10),
-                 sz=14, bold=True, color=BT.NEUTRAL_900_HEX)
+                _txb(slide, val,
+                     l=x + Mm(6), t=y + Mm(8),
+                     w=card_w - Mm(12), h=Mm(28),
+                     sz=44, bold=True, align=PP_ALIGN.LEFT, color=vc)
+                _txb(slide, label,
+                     l=x + Mm(6), t=y + Mm(37),
+                     w=card_w - Mm(12), h=Mm(10),
+                     sz=14, bold=True, color=BT.NEUTRAL_900_HEX)
+                if desc:
+                    _txb(slide, desc,
+                         l=x + Mm(6), t=y + Mm(49),
+                         w=card_w - Mm(12), h=card_h - Mm(55),
+                         sz=12, color=BT.NEUTRAL_400_HEX, ls_pt=18)
 
-            # Description
-            if desc:
-                _txb(slide, desc,
-                     l=x + Mm(6), t=y + Mm(49),
-                     w=card_w - Mm(12), h=card_h - Mm(55),
-                     sz=12, color=BT.NEUTRAL_400_HEX, ls_pt=18)
+        elif use_color:
+            # ── 2-ROW colorful layout (5-6 items, short/consistent content) ──
+            top_n   = n // 2
+            bot_n   = n - top_n
+            row_gap = Mm(5)
+            col_gap = Mm(4)
+            card_h  = (CONTENT_H - row_gap - Mm(4)) // 2
+
+            def _render_color_row(items, start_idx, y, ncols):
+                card_w = (CW - (ncols - 1) * col_gap) // ncols
+                for j, (val, label, desc) in enumerate(items):
+                    i  = start_idx + j
+                    x  = ML + j * (card_w + col_gap)
+                    vc = VAL_COLS[i % len(VAL_COLS)]
+
+                    _card(slide, l=x, t=y, w=card_w, h=card_h,
+                          bg=CARD_BGS[i % len(CARD_BGS)])
+
+                    if not _is_numeric_val(val):
+                        _txb(slide, f"{i+1:02d}",
+                             l=x + card_w - Mm(13), t=y + Mm(4),
+                             w=Mm(11), h=Mm(6),
+                             sz=10, bold=True, color=vc, align=PP_ALIGN.RIGHT)
+
+                    _txb(slide, val,
+                         l=x + Mm(6), t=y + Mm(8),
+                         w=card_w - Mm(12), h=Mm(24),
+                         sz=40, bold=True, align=PP_ALIGN.LEFT, color=vc)
+                    _txb(slide, label,
+                         l=x + Mm(6), t=y + Mm(34),
+                         w=card_w - Mm(12), h=Mm(10),
+                         sz=13, bold=True, color=BT.NEUTRAL_900_HEX)
+                    if desc:
+                        _txb(slide, desc,
+                             l=x + Mm(6), t=y + Mm(46),
+                             w=card_w - Mm(12), h=card_h - Mm(50),
+                             sz=11, color=BT.NEUTRAL_400_HEX, ls_pt=16)
+
+            top_y = CONTENT_Y + Mm(3)
+            bot_y = top_y + card_h + row_gap
+            _render_color_row(stats[:top_n], 0,     top_y, top_n)
+            _render_color_row(stats[top_n:], top_n, bot_y, bot_n)
+
+        else:
+            # ── 2-ROW neutral layout (white+gray border) ──────────────────
+            # Default for 5+ items; also triggered by colorful=False.
+            # top row = floor(n/2), bottom row = ceil(n/2)
+            top_n   = n // 2
+            bot_n   = n - top_n
+            row_gap = Mm(5)
+            col_gap = Mm(4)
+            card_h  = (CONTENT_H - row_gap - Mm(4)) // 2
+
+            def _render_neutral_row(items, start_idx, y, ncols):
+                card_w = (CW - (ncols - 1) * col_gap) // ncols
+                for j, (val, label, desc) in enumerate(items):
+                    i  = start_idx + j
+                    x  = ML + j * (card_w + col_gap)
+                    vc = VAL_COLS[i % len(VAL_COLS)]
+
+                    _card(slide, l=x, t=y, w=card_w, h=card_h,
+                          bg=BT.WHITE_HEX, border=BT.BORDER_DEFAULT_HEX)
+
+                    if not _is_numeric_val(val):
+                        _txb(slide, f"{i+1:02d}",
+                             l=x + card_w - Mm(13), t=y + Mm(4),
+                             w=Mm(11), h=Mm(6),
+                             sz=10, bold=True, color=vc, align=PP_ALIGN.RIGHT)
+
+                    _txb(slide, val,
+                         l=x + Mm(6), t=y + Mm(8),
+                         w=card_w - Mm(12), h=Mm(24),
+                         sz=40, bold=True, align=PP_ALIGN.LEFT, color=vc)
+                    _txb(slide, label,
+                         l=x + Mm(6), t=y + Mm(34),
+                         w=card_w - Mm(12), h=Mm(10),
+                         sz=13, bold=True, color=BT.NEUTRAL_900_HEX)
+                    if desc:
+                        _txb(slide, desc,
+                             l=x + Mm(6), t=y + Mm(46),
+                             w=card_w - Mm(12), h=card_h - Mm(50),
+                             sz=11, color=BT.NEUTRAL_400_HEX, ls_pt=16)
+
+            top_y = CONTENT_Y + Mm(3)
+            bot_y = top_y + card_h + row_gap
+            _render_neutral_row(stats[:top_n], 0,     top_y, top_n)
+            _render_neutral_row(stats[top_n:], top_n, bot_y, bot_n)
 
         return slide
 
@@ -1002,7 +1126,7 @@ class BrandPptx:
         else:
             _card(slide, img_l, int(CONTENT_Y + Mm(6)),
                   img_w, int(CONTENT_H - Mm(8)),
-                  bg=BT.PRIMARY_100_HEX, border="#B8EDD8")
+                  bg=BT.PRIMARY_100_HEX)
         return slide
 
     def add_image_left_text(self,
@@ -1028,7 +1152,7 @@ class BrandPptx:
         else:
             _card(slide, int(ML), int(CONTENT_Y + Mm(6)),
                   img_w, int(CONTENT_H - Mm(8)),
-                  bg=BT.PRIMARY_100_HEX, border="#B8EDD8")
+                  bg=BT.PRIMARY_100_HEX)
 
         _txb(slide, body_text,
              l=text_l, t=CONTENT_Y + Mm(6), w=text_w,
@@ -1414,9 +1538,7 @@ class BrandPptx:
             bul_c    = BT.NEUTRAL_200_HEX if featured else BT.NEUTRAL_700_HEX
             num_c    = accent if featured else BT.NEUTRAL_400_HEX
 
-            _rect(slide, l=cx, t=cy, w=CELL_W, h=CELL_H,
-                  fill=cell_bg,
-                  line=None if featured else BT.NEUTRAL_200_HEX)
+            _rect(slide, l=cx, t=cy, w=CELL_W, h=CELL_H, fill=cell_bg)
 
             # Icon background square
             _rect(slide, l=cx + Mm(4.9), t=cy + Mm(5), w=Mm(8.5), h=Mm(8.5),
