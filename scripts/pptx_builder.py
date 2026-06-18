@@ -542,21 +542,29 @@ class BrandPptx:
         card_top = CONTENT_Y + Mm(6)
         card_h   = CONTENT_H - Mm(6)
 
-        card_colors   = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, "#F8FBE7"]
+        card_colors   = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, BT.SECONDARY_100_HEX]
         accent_colors = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX]
 
         for i, c in enumerate(cards[:3]):
-            x       = ML + i * (C3_W + C3_GAP)
-            is_dark = c.get("dark", False)
-            bg      = "#161F1D" if is_dark else card_colors[i % 3]
+            x          = ML + i * (C3_W + C3_GAP)
+            is_dark   = c.get("dark",   False)
+            is_danger = c.get("danger", False)
+            if is_dark:
+                bg, tag_color, txt_color = BT.NEUTRAL_900_HEX, BT.SECONDARY_500_HEX, BT.WHITE_HEX
+                body_color = BT.NEUTRAL_400_HEX
+            elif is_danger:
+                bg, tag_color, txt_color = BT.CARD_DANGER_BG, BT.DANGER_HEX, BT.NEUTRAL_900_HEX
+                body_color = BT.NEUTRAL_700_HEX
+            else:
+                bg        = card_colors[i % 3]
+                tag_color = accent_colors[i % 3]
+                txt_color = BT.NEUTRAL_900_HEX
+                body_color = BT.NEUTRAL_700_HEX
             _card(slide, l=x, t=card_top, w=C3_W, h=card_h, bg=bg)
 
-            inner_l    = x + Mm(5)
-            inner_w    = C3_W - Mm(10)
-            y_off      = card_top + Mm(6)
-            tag_color  = BT.SECONDARY_500_HEX if is_dark else accent_colors[i % 3]
-            txt_color  = BT.WHITE_HEX         if is_dark else BT.NEUTRAL_900_HEX
-            body_color = "#8A9199"             if is_dark else BT.NEUTRAL_700_HEX
+            inner_l = x + Mm(5)
+            inner_w = C3_W - Mm(10)
+            y_off   = card_top + Mm(6)
 
             # Optional tag / eyebrow
             tag = c.get("tag", "")
@@ -608,28 +616,37 @@ class BrandPptx:
         # ── Canonical 6-slot card palette (semantic rules apply everywhere) ──────
         # Slot 1 gray  (#F2F3F5):  safe/supplementary → value text ONLY SUCCESS_HEX
         # Slot 3 orange (#FFF1DF): high-risk/warning  → bg+accent match P10 template
-        # dark card (#161F1D):     danger/standout     → SECONDARY_500 + white text
-        card_colors   = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, "#F8FBE7",
-                         "#FFF1DF",           "#E0F7FA",           "#F0E8FF"]
+        # dark card   (NEUTRAL_900 #0E1216):   ★★★ 突出/亮点/强调 → SECONDARY_500 + white text
+        # danger card (CARD_DANGER_BG #FFF2F2): ★ 慎用，危险/风险  → DANGER_HEX accent（浅色底）
+        card_colors   = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, BT.SECONDARY_100_HEX,
+                         BT.CARD_ORANGE_BG,           BT.CARD_TEAL_BG,           BT.CARD_PURPLE_BG]
         accent_colors = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX,
-                         BT.WARNING_HEX,      "#3CC5CF",           "#8255E1"]
+                         BT.WARNING_HEX,      BT.TEAL_HEX,           BT.PURPLE_HEX]
 
         for i, c in enumerate(cards[:6]):
-            col     = i % 3
-            row     = i // 3
-            x       = ML + col * (C3_W + C3_GAP)
-            y       = CONTENT_Y + PAD_TOP + row * (card_h + ROW_GAP)
-            is_dark = c.get("dark", False)
-            bg      = "#161F1D" if is_dark else card_colors[i % 6]
-            acc     = BT.SECONDARY_500_HEX if is_dark else accent_colors[i % 6]
+            col       = i % 3
+            row       = i // 3
+            x         = ML + col * (C3_W + C3_GAP)
+            y         = CONTENT_Y + PAD_TOP + row * (card_h + ROW_GAP)
+            is_dark   = c.get("dark",   False)
+            is_danger = c.get("danger", False)
+            if is_dark:
+                bg, acc, txt_color = BT.NEUTRAL_900_HEX, BT.SECONDARY_500_HEX, BT.WHITE_HEX
+                body_color = BT.NEUTRAL_400_HEX
+            elif is_danger:
+                bg, acc, txt_color = BT.CARD_DANGER_BG, BT.DANGER_HEX, BT.NEUTRAL_900_HEX
+                body_color = BT.NEUTRAL_700_HEX
+            else:
+                bg         = card_colors[i % 6]
+                acc        = accent_colors[i % 6]
+                txt_color  = BT.NEUTRAL_900_HEX
+                body_color = BT.NEUTRAL_700_HEX
 
             _card(slide, l=x, t=y, w=C3_W, h=card_h, bg=bg)
 
-            inner_l    = x + Mm(4)
-            inner_w    = C3_W - Mm(8)
-            y_off      = y + Mm(5)
-            txt_color  = BT.WHITE_HEX if is_dark else BT.NEUTRAL_900_HEX
-            body_color = "#8A9199"    if is_dark else BT.NEUTRAL_700_HEX
+            inner_l = x + Mm(4)
+            inner_w = C3_W - Mm(8)
+            y_off   = y + Mm(5)
 
             tag = c.get("tag", "")
             if tag:
@@ -665,8 +682,10 @@ class BrandPptx:
         """
         Stats card grid.
         colorful=None (auto): ≤4 items → 2-col colorful; 5+ items → 2-row neutral
-        colorful=True:  force colorful (best for short/consistent content, supports ≤6)
+        colorful=True:  force colorful cards (best for short/consistent content, ≤6)
         colorful=False: force neutral white+gray border (for long/variable content)
+        Neutral mode uses BT.EXTENDED_PALETTE (11 colors) for value text so 8 items
+        get 8 distinct colors (green→blue→red→purple→orange→teal→yel-green→suc-green).
         stats: [("98%", "准确率", "核算自动化"), ...]  → (value, label, desc)
 
         Card semantic system (applies to all card-based slides):
@@ -675,8 +694,9 @@ class BrandPptx:
           ygreen #F8FBE7: innovation/opportunity → SECONDARY_500 text
           orange #FFF1DF: high-risk/caution     → WARNING_HEX text (per P10 template)
           teal   #E0F7FA: expansion/eco         → #3CC5CF text
-          purple #F0E8FF: strategic/special     → #8255E1 text
-          dark   #161F1D: danger/standout       → SECONDARY_500 (#C8E13C) + white label
+          purple #F0E8FF: ★★ 补充/战略/特殊    → #8255E1 text（颜色不够时使用）
+          dark   #0E1216: ★★★ 突出/亮点/强调  → SECONDARY_500 (#C8E13C) + white label
+          danger #FFF2F2: ★  慎用/危险/风险   → DANGER_HEX (#F12D2D)（确实危险才用）
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
@@ -687,11 +707,11 @@ class BrandPptx:
         n     = len(stats)
 
         # Unified palette — slot index maps bg ↔ value-color as a pair
-        CARD_BGS = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, "#F8FBE7",     "#FFF1DF",
-                    "#E0F7FA",           "#F0E8FF",
+        CARD_BGS = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, BT.SECONDARY_100_HEX,     BT.CARD_ORANGE_BG,
+                    BT.CARD_TEAL_BG,           BT.CARD_PURPLE_BG,
                     BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX]
         VAL_COLS = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX, BT.WARNING_HEX,
-                    "#3CC5CF",           "#8255E1",
+                    BT.TEAL_HEX,           BT.PURPLE_HEX,
                     BT.PRIMARY_500_HEX, BT.SUCCESS_HEX]
 
         # colorful=True only makes visual sense for ≤6 items
@@ -777,7 +797,9 @@ class BrandPptx:
         else:
             # ── 2-ROW neutral layout (white+gray border) ──────────────────
             # Default for 5+ items; also triggered by colorful=False.
-            # top row = floor(n/2), bottom row = ceil(n/2)
+            # Value text uses BT.EXTENDED_PALETTE (11 colors, max contrast):
+            #   green→blue→dk-green→purple→orange→teal→yel-green→suc-green→black…
+            # 8 items = no color repeats; DANGER red excluded from palette.
             top_n   = n // 2
             bot_n   = n - top_n
             row_gap = Mm(5)
@@ -789,7 +811,7 @@ class BrandPptx:
                 for j, (val, label, desc) in enumerate(items):
                     i  = start_idx + j
                     x  = ML + j * (card_w + col_gap)
-                    vc = VAL_COLS[i % len(VAL_COLS)]
+                    vc = BT.EXTENDED_PALETTE[i % len(BT.EXTENDED_PALETTE)]
 
                     _card(slide, l=x, t=y, w=card_w, h=card_h,
                           bg=BT.WHITE_HEX, border=BT.BORDER_DEFAULT_HEX)
@@ -1499,18 +1521,18 @@ class BrandPptx:
             "title":    "智能检查",
             "en":       "SMART INSPECTION",
             "bullets":  ["AI 一键创建检查表单", "..."],
-            "accent":   "#4B9E31",     # EN label color  (optional, defaults cycle)
-            "icon_bg":  "#EAFAF5",     # icon square bg  (optional, defaults cycle)
-            "featured": False,         # True → dark bg, white text (flagship)
+            "accent":   BT.SUCCESS_HEX,       # EN label color  (optional, defaults cycle)
+            "icon_bg":  BT.PRIMARY_100_HEX,    # icon square bg  (optional, defaults cycle)
+            "featured": False,                  # True → dark bg, white text (flagship)
         }]
         """
         _ICON_DEFAULTS = [
-            "#EAFAF5", "#FFF1DF", "#F2F3F5", "#3EC99E",
-            "#F2F3DC", "#F0E8FF", "#E0F7FA", BT.SECONDARY_500_HEX,
+            BT.PRIMARY_100_HEX,    BT.CARD_ORANGE_BG,   BT.NEUTRAL_100_HEX, BT.PRIMARY_500_HEX,
+            BT.SECONDARY_100_HEX,  BT.CARD_PURPLE_BG,   BT.CARD_TEAL_BG,    BT.SECONDARY_500_HEX,
         ]
         _ACCENT_DEFAULTS = [
-            BT.SUCCESS_HEX, "#FFB928", BT.NEUTRAL_700_HEX, BT.PRIMARY_500_HEX,
-            BT.SUCCESS_HEX, "#8255E1", "#3CC5CF",           BT.SECONDARY_500_HEX,
+            BT.SUCCESS_HEX,    BT.WARNING_HEX,   BT.NEUTRAL_700_HEX, BT.PRIMARY_500_HEX,
+            BT.SUCCESS_HEX,    BT.PURPLE_HEX,    BT.TEAL_HEX,        BT.SECONDARY_500_HEX,
         ]
 
         slide = self._new_slide()

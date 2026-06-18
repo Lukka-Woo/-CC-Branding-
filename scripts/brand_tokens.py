@@ -48,7 +48,68 @@ NEUTRAL_50_HEX    = _T["colors"]["neutral"]["50"]
 WHITE_HEX         = _T["colors"]["neutral"]["0"]
 SUCCESS_HEX       = _T["colors"]["semantic"]["success"]
 WARNING_HEX       = _T["colors"]["semantic"]["warning"]
-DANGER_HEX        = _T["colors"]["semantic"]["danger"]
+# DANGER_HEX — 仅限"危险、警告、风险"场景。
+# 使用方式与其他语义卡片一致：CARD_DANGER_BG 作为卡片底色，DANGER_HEX 作为 accent/文字色。
+# 严禁在：数据统计卡片、目录、过渡页、普通列举中使用此色。
+DANGER_HEX        = _T["colors"]["semantic"]["danger"]   # #F12D2D
+
+# ── Supplement colors (from tokens.json › colors.supplement) ─────────────────
+BLUE_HEX   = _T["colors"]["supplement"]["blue"]    # #007BFF
+TEAL_HEX   = _T["colors"]["supplement"]["teal"]    # #3CC5CF
+PURPLE_HEX = _T["colors"]["supplement"]["purple"]  # #8255E1
+ORANGE_HEX = _T["colors"]["supplement"]["orange"]  # #FFB928  (≡ WARNING_HEX)
+
+# ── Card background tints — 语义卡片底色（浅色 tint 规律）────────────────────────
+# 所有语义卡片统一遵循：浅色底（"100"级）+ 对应的 accent 色（"500"级）作文字/装饰色。
+# 与 tokens.json 的 primary-100/500、secondary-100/500 同一逻辑，
+# 补充色（supplement）没有写入 tokens.json，在此命名以保持一致性。
+#
+# 使用优先级（参见母版 P11）：
+#  ★★★ 优先推荐  底色常量          │ accent 常量          │ 语义
+#  ────────────────────────────────┼─────────────────────┼──────────────────────
+#  ★★★           PRIMARY_100_HEX   │ PRIMARY_500_HEX      │ 标准 / 主要特性
+#  ★★★           NEUTRAL_100_HEX   │ SUCCESS_HEX          │ 安全 / 补充 / 次要
+#  ★★★           SECONDARY_100_HEX │ SECONDARY_500_HEX    │ 创新 / 机遇
+#  ★★★           CARD_ORANGE_BG    │ WARNING_HEX          │ 高风险 / 注意（优先于红色）
+#  ★★★           CARD_TEAL_BG      │ TEAL_HEX             │ 扩张 / 生态
+#  ★★★ 深色卡    NEUTRAL_900_HEX   │ SECONDARY_500_HEX    │ 突出 / 亮点 / 强调（非危险）
+#  ─── 补充 ─────────────────────────────────────────────────────────────────────
+#  ★★  补充       CARD_PURPLE_BG    │ PURPLE_HEX           │ 战略 / 特殊（颜色不够时用）
+#  ─── 慎用 ─────────────────────────────────────────────────────────────────────
+#  ★   慎用       CARD_DANGER_BG    │ DANGER_HEX           │ 危险 / 风险（确实是危险才用）
+CARD_ORANGE_BG  = "#FFF1DF"   # light tint of WARNING  #FFB928
+CARD_TEAL_BG    = "#E0F7FA"   # light tint of TEAL     #3CC5CF
+CARD_PURPLE_BG  = "#F0E8FF"   # light tint of PURPLE   #8255E1
+CARD_DANGER_BG  = "#FFF2F2"   # light tint of DANGER   #F12D2D  (同 brand.css .brand-note--danger)
+
+# ── Chart & extended palettes ─────────────────────────────────────────────────
+# CHART_PALETTE — 6 slots from tokens.json；用于折线图/柱状图/饼图等数据可视化。
+# 注意：最后一槽 #F12D2D（红色）仅用于"负向/危险"系列（如超标、亏损、风险项），
+# 中性数据系列请优先用前 5 槽。
+CHART_PALETTE: list = _T["charts"]["palette"]
+# ['#53AF36', '#007BFF', '#3CC5CF', '#8255E1', '#FFB928', '#F12D2D']
+
+# EXTENDED_PALETTE — 11 slots, 最大感知对比度排列。
+# 用于 8+ 张白底卡片（neutral 模式）及多系列图表；8 张卡片无重复色。
+# 刻意排除 DANGER_HEX（#F12D2D）：本品牌定位"自然、科技、可持续、安全"，
+# 红色与整体视觉调性不符，不作为通用数据色使用。
+# Slot:  0          1        2          3         4        5
+#        brand-grn  blue     dk-green   purple    orange   teal
+#        6          7        8          9         10
+#        yel-green  suc-grn  near-blk   dk-gray   mid-gray
+EXTENDED_PALETTE: list = [
+    PRIMARY_500_HEX,   # #3EC99E  品牌主绿（明亮）
+    BLUE_HEX,          # #007BFF  蓝色
+    PRIMARY_600_HEX,   # #319E7C  品牌深绿（与主绿同族但明度差异大）
+    PURPLE_HEX,        # #8255E1  紫色
+    WARNING_HEX,       # #FFB928  橙色（表示"提示/注意"，非红色危险）
+    TEAL_HEX,          # #3CC5CF  青色
+    SECONDARY_500_HEX, # #C8E13C  黄绿色
+    SUCCESS_HEX,       # #5CC13C  成功绿
+    NEUTRAL_900_HEX,   # #0E1216  近黑（第9槽起循环用于需要高对比的场景）
+    NEUTRAL_700_HEX,   # #3D444A  深灰
+    NEUTRAL_400_HEX,   # #8A9199  中灰
+]
 
 # ── Background / Text / Border semantic tokens ────────────────────────────────
 BG_PAGE_HEX        = _T["colors"]["background"]["page"]     # #F8FAFC  page-level
