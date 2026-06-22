@@ -26,6 +26,7 @@ Gradient title note:
 
 import os
 import re
+import math
 from typing import List, Optional, Tuple, Dict, Any
 import scripts.brand_tokens as BT
 
@@ -46,6 +47,30 @@ from lxml import etree
 def _rgb(hex_color: str) -> RGBColor:
     h = hex_color.lstrip("#")
     return RGBColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
+def _est_text_h_mm(text: str, sz_pt: float, w_mm: float, ls_pt: float = None) -> float:
+    """Estimate rendered text block height in mm for CJK-dominant mixed text.
+
+    Used for content-adaptive card sizing: compute required textbox height before
+    drawing so the card background can be sized to match.
+
+    sz_pt:  font size in points
+    w_mm:   textbox inner width in mm (after horizontal padding)
+    ls_pt:  line spacing in points (defaults to 1.4× font size)
+    Returns height in mm including a 2mm buffer for PPTX internal margin.
+    """
+    if not text or not text.strip():
+        return 0.0
+    ls = ls_pt if ls_pt else sz_pt * 1.4
+    # CJK full-width char ≈ sz × 0.353 mm; use 0.85 factor (conservative estimate)
+    char_w = sz_pt * 0.353 * 0.85
+    chars_per_line = max(1.0, w_mm / char_w)
+    total_lines = 0
+    for para in text.split('\n'):
+        stripped = para.strip()
+        total_lines += max(1, math.ceil(len(stripped) / chars_per_line)) if stripped else 1
+    return total_lines * ls * 0.353 + 2.0  # +2 mm for PPTX default top+bottom inset
 
 
 # ── Slide dimensions (16:9) ───────────────────────────────────────────────────
@@ -624,10 +649,10 @@ class BrandPptx:
                   fill=tag_color)
             y_off += Mm(5)
 
-            # Card body
+            # Card body — 8mm bottom padding consistent with horizontal padding
             body_tb = _txb(slide, c.get("body", ""),
                            l=inner_l, t=y_off, w=inner_w,
-                           h=card_h - (y_off - card_top) - Mm(6),
+                           h=card_h - (y_off - card_top) - Mm(8),
                            sz=13, color=body_color, ls_pt=18)
             body_tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
@@ -704,6 +729,7 @@ class BrandPptx:
                 body_color = BT.NEUTRAL_700_HEX
 
             _card(slide, l=x, t=y, w=C3_W, h=card_h, bg=bg)
+            _seq_badge(slide, x=x + C3_W - Mm(13), y=y + Mm(4), seq=i + 1, color=acc)
 
             inner_l = x + Mm(4)
             inner_w = C3_W - Mm(8)
@@ -724,7 +750,7 @@ class BrandPptx:
             _rect(slide, l=inner_l, t=y_off, w=Mm(22), h=Mm(0.8), fill=acc)
             y_off += Mm(4)
 
-            body_h = card_h - (y_off - y) - Mm(4)
+            body_h = card_h - (y_off - y) - Mm(8)
             if body_h > Mm(8):
                 body_tb = _txb(slide, c.get("body", ""),
                                l=inner_l, t=y_off, w=inner_w, h=body_h,
@@ -782,123 +808,186 @@ class BrandPptx:
             use_color = bool(colorful) and (n <= 6)
 
         if use_color and n <= 4:
-            # ── 2-column colorful layout (≤4 items, no sequence numbers) ──
+            # ── 2-column colorful layout (≤4 items) — content-adaptive row height ──
+            # Val and label heights "hug" their content (1-line tight sizing).
+            # Each row's height = max needed across both cards, hard-clamped to keep
+            # cards within the content zone (never overlapping footer/logo).
+            # Desc is bottom-aligned so text sits flush above the card's bottom margin.
             rows   = (n + 1) // 2
             gap    = Mm(8)
             card_w = (CW - gap) // 2
-            card_h = (CONTENT_H - (rows - 1) * gap - Mm(6)) // rows
+            _inner_w_mm = (card_w - Mm(12)) / 36000
+
+            # Tight top-block geometry:  top_pad + val + gap + label + gap = above_desc
+            _VAL_H      = Mm(20)   # 44pt bold, 1 line: ~17.5mm + margin
+            _LABEL_H    = Mm(8)    # 14pt bold, 1 line: ~5mm + margin
+            _ABOVE_DESC = Mm(8) + _VAL_H + Mm(2) + _LABEL_H + Mm(3)   # = Mm(41)
+            _PAD_BOT    = Mm(10)
+            _MIN_CARD_H = Mm(54)
+
+            # Hard max: cards must not reach the footer zone (logo lives there)
+            _avail_rows = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(6))
+            _MAX_ROW_H  = int((_avail_rows - (rows - 1) * gap) // rows)
+
+            def _required_card_h(desc_text):
+                if desc_text:
+                    return _ABOVE_DESC + Mm(_est_text_h_mm(desc_text, 12, _inner_w_mm, ls_pt=18)) + _PAD_BOT
+                return _ABOVE_DESC + Mm(8) + _PAD_BOT
+
+            row_h = []
+            for r in range(rows):
+                row_items = stats[r * 2 : r * 2 + 2]
+                rh = max((_required_card_h(d) for _, _, d in row_items), default=_MIN_CARD_H)
+                row_h.append(int(max(_MIN_CARD_H, min(rh, _MAX_ROW_H))))
+
+            row_y = [CONTENT_Y + Mm(6)]
+            for r in range(1, rows):
+                row_y.append(row_y[r - 1] + row_h[r - 1] + gap)
 
             for i, (val, label, desc) in enumerate(stats):
                 col = i % 2
                 row = i // 2
                 x   = ML + col * (card_w + gap)
-                y   = CONTENT_Y + Mm(6) + row * (card_h + gap)
+                y   = row_y[row]
+                ch  = row_h[row]
                 vc  = VAL_COLS[i % len(VAL_COLS)]
 
-                _card(slide, l=x, t=y, w=card_w, h=card_h,
+                _card(slide, l=x, t=y, w=card_w, h=ch,
                       bg=CARD_BGS[i % len(CARD_BGS)])
 
+                # Val — tight hug height
                 _txb(slide, val,
                      l=x + Mm(6), t=y + Mm(8),
-                     w=card_w - Mm(12), h=Mm(28),
+                     w=card_w - Mm(12), h=_VAL_H,
                      sz=44, bold=True, align=PP_ALIGN.LEFT, color=vc)
+                # Label — immediately after val with 2mm gap
                 _txb(slide, label,
-                     l=x + Mm(6), t=y + Mm(37),
-                     w=card_w - Mm(12), h=Mm(10),
+                     l=x + Mm(6), t=y + Mm(8) + _VAL_H + Mm(2),
+                     w=card_w - Mm(12), h=_LABEL_H,
                      sz=14, bold=True, color=BT.NEUTRAL_900_HEX)
                 if desc:
+                    # Desc spans remaining space; bottom-aligned so text sits
+                    # flush above the card's bottom margin regardless of length.
                     _txb(slide, desc,
-                         l=x + Mm(6), t=y + Mm(49),
-                         w=card_w - Mm(12), h=card_h - Mm(55),
-                         sz=12, color=BT.NEUTRAL_400_HEX, ls_pt=18)
+                         l=x + Mm(6), t=y + _ABOVE_DESC,
+                         w=card_w - Mm(12), h=ch - _ABOVE_DESC - _PAD_BOT,
+                         sz=12, color=BT.NEUTRAL_400_HEX, ls_pt=18,
+                         valign=MSO_ANCHOR.BOTTOM)
 
         elif use_color:
-            # ── 2-ROW colorful layout (5-6 items, short/consistent content) ──
+            # ── 2-ROW colorful layout (5-6 items) — content-adaptive row height ──
             top_n   = n // 2
             bot_n   = n - top_n
             row_gap = Mm(5)
             col_gap = Mm(4)
-            card_h  = (CONTENT_H - row_gap - Mm(4)) // 2
+            # Tight top-block geometry — val and label hug their single line.
+            # Hard max ensures cards cannot reach footer/logo zone.
+            _VAL_H  = Mm(18)   # 40pt bold 1-line (~14mm + margin)
+            _LBL_H  = Mm(8)    # 13pt bold 1-line (~5mm + margin)
+            _ABOVE  = Mm(8) + _VAL_H + Mm(2) + _LBL_H + Mm(3)   # = Mm(39)
+            _BOT    = Mm(10)
+            _MIN_H  = Mm(50)
+            _avail  = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(3))
+            _MAX_H  = int((_avail - row_gap) // 2)
 
-            def _render_color_row(items, start_idx, y, ncols):
+            def _color_row_h(items, ncols):
+                cw = (CW - (ncols - 1) * col_gap) // ncols
+                iw = (cw - Mm(12)) / 36000
+                return int(min(_MAX_H, max(_MIN_H, max(
+                    (_ABOVE + Mm(_est_text_h_mm(d, 11, iw, ls_pt=16)) + _BOT
+                     if d else _ABOVE + _BOT)
+                    for _, _, d in items))))
+
+            top_ch = _color_row_h(stats[:top_n], top_n)
+            bot_ch = _color_row_h(stats[top_n:], bot_n)
+            top_y  = CONTENT_Y + Mm(3)
+            bot_y  = top_y + top_ch + row_gap
+
+            def _render_color_row(items, start_idx, y, ncols, card_h):
                 card_w = (CW - (ncols - 1) * col_gap) // ncols
                 for j, (val, label, desc) in enumerate(items):
                     i  = start_idx + j
                     x  = ML + j * (card_w + col_gap)
                     vc = VAL_COLS[i % len(VAL_COLS)]
-
                     _card(slide, l=x, t=y, w=card_w, h=card_h,
                           bg=CARD_BGS[i % len(CARD_BGS)])
-
                     if not _is_numeric_val(val):
-                        _seq_badge(slide,
-                                   x=x + card_w - Mm(13), y=y + Mm(4),
+                        _seq_badge(slide, x=x + card_w - Mm(13), y=y + Mm(4),
                                    seq=i + 1, color=vc)
-
                     _txb(slide, val,
                          l=x + Mm(6), t=y + Mm(8),
-                         w=card_w - Mm(12), h=Mm(24),
+                         w=card_w - Mm(12), h=_VAL_H,
                          sz=40, bold=True, align=PP_ALIGN.LEFT, color=vc)
                     _txb(slide, label,
-                         l=x + Mm(6), t=y + Mm(34),
-                         w=card_w - Mm(12), h=Mm(10),
+                         l=x + Mm(6), t=y + Mm(8) + _VAL_H + Mm(2),
+                         w=card_w - Mm(12), h=_LBL_H,
                          sz=13, bold=True, color=BT.NEUTRAL_900_HEX)
                     if desc:
                         _txb(slide, desc,
-                             l=x + Mm(6), t=y + Mm(46),
-                             w=card_w - Mm(12), h=card_h - Mm(50),
-                             sz=11, color=BT.NEUTRAL_400_HEX, ls_pt=16)
+                             l=x + Mm(6), t=y + _ABOVE,
+                             w=card_w - Mm(12), h=card_h - _ABOVE - _BOT,
+                             sz=11, color=BT.NEUTRAL_400_HEX, ls_pt=16,
+                             valign=MSO_ANCHOR.BOTTOM)
 
-            top_y = CONTENT_Y + Mm(3)
-            bot_y = top_y + card_h + row_gap
-            _render_color_row(stats[:top_n], 0,     top_y, top_n)
-            _render_color_row(stats[top_n:], top_n, bot_y, bot_n)
+            _render_color_row(stats[:top_n], 0,     top_y, top_n, top_ch)
+            _render_color_row(stats[top_n:], top_n, bot_y, bot_n, bot_ch)
 
         else:
-            # ── 2-ROW neutral layout (white+gray border) ──────────────────
-            # Default for 5+ items; also triggered by colorful=False.
-            # Value text uses BT.EXTENDED_PALETTE (11 colors, max contrast):
-            #   green→blue→dk-green→purple→orange→teal→yel-green→suc-green→black…
-            # 8 items = no color repeats; DANGER red excluded from palette.
+            # ── 2-ROW neutral layout (white+gray border) — content-adaptive ──
+            # Value text uses BT.EXTENDED_PALETTE (11 colors, max contrast).
             top_n   = n // 2
             bot_n   = n - top_n
             row_gap = Mm(5)
             col_gap = Mm(4)
-            card_h  = (CONTENT_H - row_gap - Mm(4)) // 2
+            _VAL_H  = Mm(18)
+            _LBL_H  = Mm(8)
+            _ABOVE  = Mm(8) + _VAL_H + Mm(2) + _LBL_H + Mm(3)   # = Mm(39)
+            _BOT    = Mm(10)
+            _MIN_H  = Mm(50)
+            _avail  = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(3))
+            _MAX_H  = int((_avail - row_gap) // 2)
 
-            def _render_neutral_row(items, start_idx, y, ncols):
+            def _neutral_row_h(items, ncols):
+                cw = (CW - (ncols - 1) * col_gap) // ncols
+                iw = (cw - Mm(12)) / 36000
+                return int(min(_MAX_H, max(_MIN_H, max(
+                    (_ABOVE + Mm(_est_text_h_mm(d, 11, iw, ls_pt=16)) + _BOT
+                     if d else _ABOVE + _BOT)
+                    for _, _, d in items))))
+
+            top_ch = _neutral_row_h(stats[:top_n], top_n)
+            bot_ch = _neutral_row_h(stats[top_n:], bot_n)
+            top_y  = CONTENT_Y + Mm(3)
+            bot_y  = top_y + top_ch + row_gap
+
+            def _render_neutral_row(items, start_idx, y, ncols, card_h):
                 card_w = (CW - (ncols - 1) * col_gap) // ncols
                 for j, (val, label, desc) in enumerate(items):
                     i  = start_idx + j
                     x  = ML + j * (card_w + col_gap)
                     vc = BT.EXTENDED_PALETTE[i % len(BT.EXTENDED_PALETTE)]
-
                     _card(slide, l=x, t=y, w=card_w, h=card_h,
                           bg=BT.WHITE_HEX, border=BT.BORDER_DEFAULT_HEX)
-
                     if not _is_numeric_val(val):
-                        _seq_badge(slide,
-                                   x=x + card_w - Mm(13), y=y + Mm(4),
+                        _seq_badge(slide, x=x + card_w - Mm(13), y=y + Mm(4),
                                    seq=i + 1, color=vc)
-
                     _txb(slide, val,
                          l=x + Mm(6), t=y + Mm(8),
-                         w=card_w - Mm(12), h=Mm(24),
+                         w=card_w - Mm(12), h=_VAL_H,
                          sz=40, bold=True, align=PP_ALIGN.LEFT, color=vc)
                     _txb(slide, label,
-                         l=x + Mm(6), t=y + Mm(34),
-                         w=card_w - Mm(12), h=Mm(10),
+                         l=x + Mm(6), t=y + Mm(8) + _VAL_H + Mm(2),
+                         w=card_w - Mm(12), h=_LBL_H,
                          sz=13, bold=True, color=BT.NEUTRAL_900_HEX)
                     if desc:
                         _txb(slide, desc,
-                             l=x + Mm(6), t=y + Mm(46),
-                             w=card_w - Mm(12), h=card_h - Mm(50),
-                             sz=11, color=BT.NEUTRAL_400_HEX, ls_pt=16)
+                             l=x + Mm(6), t=y + _ABOVE,
+                             w=card_w - Mm(12), h=card_h - _ABOVE - _BOT,
+                             sz=11, color=BT.NEUTRAL_400_HEX, ls_pt=16,
+                             valign=MSO_ANCHOR.BOTTOM)
 
-            top_y = CONTENT_Y + Mm(3)
-            bot_y = top_y + card_h + row_gap
-            _render_neutral_row(stats[:top_n], 0,     top_y, top_n)
-            _render_neutral_row(stats[top_n:], top_n, bot_y, bot_n)
+            _render_neutral_row(stats[:top_n], 0,     top_y, top_n, top_ch)
+            _render_neutral_row(stats[top_n:], top_n, bot_y, bot_n, bot_ch)
 
         return slide
 
