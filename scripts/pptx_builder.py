@@ -307,7 +307,7 @@ def _seq_badge(slide, x, y, seq: int, color: str, size_mm: float = 9):
     _txb(slide, f"{seq:02d}",
          l=x, t=y + Mm(0.5), w=s, h=s - Mm(1),
          sz=int(size_mm * 0.9), bold=True, color=BT.WHITE_HEX,
-         align=PP_ALIGN.CENTER)
+         align=PP_ALIGN.CENTER, wrap=False)
 
 
 # ── BrandPptx ─────────────────────────────────────────────────────────────────
@@ -570,12 +570,12 @@ class BrandPptx:
 
         for i, c in enumerate(cards[:3]):
             x          = ML + i * (C3_W + C3_GAP)
-            is_dark   = c.get("dark",   False)
+            # Three-card layout is always ≤3 items — keep the full palette light and
+            # airy; dark cards are reserved for high-count slides where one accent
+            # card creates genuine contrast without dominating.
+            is_dark   = False
             is_danger = c.get("danger", False)
-            if is_dark:
-                bg, tag_color, txt_color = BT.NEUTRAL_900_HEX, BT.SECONDARY_500_HEX, BT.WHITE_HEX
-                body_color = BT.NEUTRAL_400_HEX
-            elif is_danger:
+            if is_danger:
                 bg, tag_color, txt_color = BT.CARD_DANGER_BG, BT.DANGER_HEX, BT.NEUTRAL_900_HEX
                 body_color = BT.NEUTRAL_700_HEX
             else:
@@ -646,7 +646,24 @@ class BrandPptx:
         accent_colors = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX,
                          BT.WARNING_HEX,      BT.TEAL_HEX,           BT.PURPLE_HEX]
 
-        for i, c in enumerate(cards[:6]):
+        # Dark card budget: 0 when < 5 cards (light, airy palette), 1 when ≥ 5.
+        # Extra dark requests are silently downgraded to their slot default color.
+        _n_cards     = len(cards[:6])
+        _dark_budget = 1 if _n_cards >= 5 else 0
+        _dark_used   = 0
+        _cards_adj   = []
+        for _c in cards[:6]:
+            if _c.get("dark", False):
+                if _dark_used < _dark_budget:
+                    _cards_adj.append(_c)
+                    _dark_used += 1
+                else:
+                    _c2 = {k: v for k, v in _c.items() if k != "dark"}
+                    _cards_adj.append(_c2)
+            else:
+                _cards_adj.append(_c)
+
+        for i, c in enumerate(_cards_adj):
             col       = i % 3
             row       = i // 3
             x         = ML + col * (C3_W + C3_GAP)
@@ -1275,16 +1292,12 @@ class BrandPptx:
 
             _rect(slide, l=cx, t=cy, w=CARD_W, h=CARD_H, fill=card_bg)
 
+            # Number — right-aligned, single line, no wrap; spans full card width so
+            # the digit(s) naturally anchor to the top-right corner of the card.
             _txb(slide, ch.get("num", ""),
-                 l=cx + Mm(5.6), t=cy + Mm(5.6), w=Mm(24), h=Mm(18),
-                 sz=44, bold=True, color=num_c)
-
-            arr_x = cx + Mm(81.4)
-            arr_y = cy + Mm(14.6)
-            _rect(slide, l=arr_x, t=arr_y, w=Mm(6.3), h=Mm(6.3),
-                  fill=arr_bg, radius_mm=BT.RADIUS_XS_MM)
-            _txb(slide, "→", l=arr_x, t=arr_y + Mm(0.5), w=Mm(6.3), h=Mm(5),
-                 sz=8, bold=True, color=arr_c, align=PP_ALIGN.CENTER)
+                 l=cx + Mm(5.6), t=cy + Mm(4), w=CARD_W - Mm(11.2), h=Mm(17),
+                 sz=44, bold=True, color=num_c,
+                 align=PP_ALIGN.RIGHT, wrap=False)
 
             _txb(slide, ch.get("title", ""),
                  l=cx + Mm(5.6), t=cy + Mm(27.5), w=CARD_W - Mm(10), h=Mm(9),
@@ -1569,7 +1582,24 @@ class BrandPptx:
         ROW_GAP = Mm(3.5)
         GRID_Y  = CONTENT_Y + Mm(3)
 
-        for i, mod in enumerate(modules[:8]):
+        # Featured (dark) budget: same rule as card layouts —
+        # 0 when < 5 modules, 1 when ≥ 5.
+        _n_mods       = len(modules[:8])
+        _feat_budget  = 1 if _n_mods >= 5 else 0
+        _feat_used    = 0
+        _modules_adj  = []
+        for _m in modules[:8]:
+            if _m.get("featured", False):
+                if _feat_used < _feat_budget:
+                    _modules_adj.append(_m)
+                    _feat_used += 1
+                else:
+                    _m2 = {k: v for k, v in _m.items() if k != "featured"}
+                    _modules_adj.append(_m2)
+            else:
+                _modules_adj.append(_m)
+
+        for i, mod in enumerate(_modules_adj):
             col      = i % COLS
             row      = i // COLS
             cx       = ML + col * (CELL_W + COL_GAP)
@@ -1588,11 +1618,11 @@ class BrandPptx:
             _rect(slide, l=cx + Mm(4.9), t=cy + Mm(5), w=Mm(8.5), h=Mm(8.5),
                   fill=icon_bg)
 
-            # Sequence number — top right of cell
+            # Sequence number — top right of cell, single line, no wrap
             num_str = mod.get("num", f"{i+1:02d}")
             _txb(slide, num_str,
-                 l=cx + CELL_W - Mm(9), t=cy + Mm(5), w=Mm(8), h=Mm(5),
-                 sz=9, bold=True, color=num_c, align=PP_ALIGN.RIGHT)
+                 l=cx + CELL_W - Mm(14), t=cy + Mm(4.5), w=Mm(13), h=Mm(6),
+                 sz=9, bold=True, color=num_c, align=PP_ALIGN.RIGHT, wrap=False)
 
             # Module title
             _txb(slide, mod.get("title", ""),
