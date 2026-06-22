@@ -1616,7 +1616,11 @@ class BrandPptx:
             bul_c    = BT.NEUTRAL_200_HEX if featured else BT.NEUTRAL_700_HEX
             num_c    = accent if featured else BT.NEUTRAL_400_HEX
 
-            _rect(slide, l=cx, t=cy, w=CELL_W, h=CELL_H, fill=cell_bg)
+            # Use _card() so rounded corners (RADIUS_SM_MM) and border are applied.
+            # White cells get a subtle border so they're visible against the slide bg.
+            _card(slide, l=cx, t=cy, w=CELL_W, h=CELL_H, bg=cell_bg,
+                  border=None if featured else BT.BORDER_DEFAULT_HEX,
+                  radius_mm=BT.RADIUS_SM_MM)
 
             # Icon background square
             _rect(slide, l=cx + Mm(4.9), t=cy + Mm(5), w=Mm(8.5), h=Mm(8.5),
