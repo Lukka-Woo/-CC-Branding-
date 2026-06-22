@@ -29,6 +29,12 @@ import re
 from typing import List, Optional, Tuple, Dict, Any
 import scripts.brand_tokens as BT
 
+# Brand root directory (two levels up from this file: scripts/ → brand 3/)
+# Used by the icon resolver to locate assets/icons/ without requiring callers
+# to pass absolute paths for brand-wide shared icons.
+_BRAND_ROOT: str = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_ICONS_DIR:  str = os.path.join(_BRAND_ROOT, "assets", "icons")
+
 from pptx import Presentation
 from pptx.util import Inches, Pt, Mm, Emu
 from pptx.dml.color import RGBColor
@@ -1622,9 +1628,70 @@ class BrandPptx:
                   border=None if featured else BT.BORDER_DEFAULT_HEX,
                   radius_mm=BT.RADIUS_SM_MM)
 
-            # Icon background square
-            _rect(slide, l=cx + Mm(4.9), t=cy + Mm(5), w=Mm(8.5), h=Mm(8.5),
-                  fill=icon_bg)
+            # Icon background — circular badge (pill radius on a square → perfect circle).
+            _IBGL = cx + Mm(4.9)
+            _IBGT = cy + Mm(5.0)
+            _IBGW = Mm(8.5)
+            _IBGH = Mm(8.5)
+            _rect(slide, l=_IBGL, t=_IBGT, w=_IBGW, h=_IBGH,
+                  fill=icon_bg, radius_mm=BT.RADIUS_PILL_MM)
+
+            # Icon content — three modes:
+            #   1. PNG/SVG file path (absolute): rendered as picture
+            #   2. Short string / emoji: rendered as centered text without font
+            #      override so the OS emoji/symbol font fallback activates
+            #   3. Empty / None: shows the coloured background only (placeholder)
+            #
+            # Lookup order for non-absolute filenames (stem = name without extension):
+            #   1. assets/icons/png/{stem}.png  ← pre-rasterized, used for PPTX
+            #   2. assets/icons/svg/{stem}.svg  ← canonical (cannot embed in PPTX directly)
+            #   3. assets/icons/{name}          ← legacy flat path
+            #   4. Absolute / relative path as-is
+            # Run assets/icons/render.mjs to regenerate PNGs from SVGs.
+            icon_spec = mod.get("icon", "")
+            if icon_spec:
+                _icon_path = None
+                # Try icon lookup candidates in priority order
+                if _BRAND_ROOT:
+                    _stem = os.path.splitext(icon_spec)[0]   # "sparkles" from "sparkles.png"
+                    _candidates = [
+                        os.path.join(_BRAND_ROOT, "assets", "icons", "png", _stem + ".png"),
+                        os.path.join(_BRAND_ROOT, "assets", "icons", "svg", _stem + ".svg"),
+                        os.path.join(_BRAND_ROOT, "assets", "icons", icon_spec),
+                    ]
+                    for _c in _candidates:
+                        if os.path.exists(_c):
+                            _icon_path = _c
+                            break
+                if not _icon_path and os.path.exists(icon_spec):
+                    _icon_path = icon_spec
+
+                if _icon_path:
+                    # File-based icon: centered within the circular background.
+                    # Inset = (bg_size - icon_size) / 2 on each axis → perfect center.
+                    _ISZ = Mm(5.5)
+                    _IL  = _IBGL + (_IBGW - _ISZ) / 2
+                    _IT  = _IBGT + (_IBGH - _ISZ) / 2
+                    slide.shapes.add_picture(
+                        _icon_path, int(_IL), int(_IT),
+                        width=int(_ISZ), height=int(_ISZ))
+                else:
+                    # Inline emoji / unicode character — do NOT set fonts so the
+                    # system's emoji/symbol fallback can activate.
+                    _ib = slide.shapes.add_textbox(
+                        int(_IBGL), int(_IBGT),
+                        int(_IBGW), int(_IBGH))
+                    _itf = _ib.text_frame
+                    _itf.word_wrap = False
+                    _ip = _itf.paragraphs[0]
+                    _ip.alignment = PP_ALIGN.CENTER
+                    _irun = _ip.add_run()
+                    _irun.text = icon_spec
+                    _irun.font.size = Pt(12)
+                    # Colour only for non-emoji (colour is ignored on system emoji)
+                    _irun.font.color.rgb = _rgb(
+                        BT.WHITE_HEX if featured else BT.NEUTRAL_700_HEX
+                    )
 
             # Sequence number — top right of cell, single line, no wrap
             num_str = mod.get("num", f"{i+1:02d}")
