@@ -38,7 +38,7 @@ _ICONS_DIR:  str = os.path.join(_BRAND_ROOT, "assets", "icons")
 from pptx import Presentation
 from pptx.util import Inches, Pt, Mm, Emu
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
+from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE, MSO_ANCHOR
 from pptx.oxml.ns import qn
 from lxml import etree
 
@@ -167,14 +167,18 @@ def _apply_gradient_to_run(run, stops=None, angle_deg=0):
 def _txb(slide, text, l, t, w, h,
          sz=16, bold=False, color=None,
          align=PP_ALIGN.LEFT, wrap=True,
-         ls_pt=None,
+         ls_pt=None, valign=None, alpha=None,
          cn_font=BT.FONT_CN, en_font=BT.FONT_EN):
-    """Add a plain text box. color=None keeps default (white)."""
+    """Add a plain text box. color=None keeps default (white).
+    alpha: opacity 0–100 (e.g. alpha=8 → 8% opaque / 92% transparent).
+    """
     if color is None:
         color = BT.NEUTRAL_700_HEX
     tb = slide.shapes.add_textbox(int(l), int(t), int(w), int(h))
     tf = tb.text_frame
     tf.word_wrap = wrap
+    if valign is not None:
+        tf.vertical_anchor = valign
     p = tf.paragraphs[0]
     p.alignment = align
     if ls_pt:
@@ -187,6 +191,14 @@ def _txb(slide, text, l, t, w, h,
     run.font.size = Pt(sz)
     run.font.bold = bold
     run.font.color.rgb = _rgb(color)
+    if alpha is not None:
+        # Inject <a:alpha val="N"/> into the srgbClr element (N = alpha% × 1000)
+        _rPr = run._r.get_or_add_rPr()
+        _sf  = _rPr.find(qn("a:solidFill"))
+        if _sf is not None:
+            _sc = _sf.find(qn("a:srgbClr"))
+            if _sc is not None:
+                etree.SubElement(_sc, qn("a:alpha")).set("val", str(int(alpha * 1000)))
     _set_run_fonts(run, en_font=en_font, cn_font=cn_font)
     return tb
 
@@ -1007,11 +1019,20 @@ class BrandPptx:
                   w=dot_r * 2, h=dot_r * 2,
                   fill=ac, radius_mm=BT.RADIUS_PILL_MM)
 
-            # Period label — above spine
+            # Period label — pill badge, width fitted to content, centered over dot.
+            # Badge sits just above the dot with a small gap.
+            _BADGE_H = Mm(6.5)
+            _BADGE_W = min(item_w - Mm(6), Mm(28))   # caps at 28mm; scales down for dense rows
+            _BADGE_L = cx - _BADGE_W // 2
+            _BADGE_T = dot_y - Mm(2) - _BADGE_H
+            _rect(slide, l=_BADGE_L, t=_BADGE_T, w=_BADGE_W, h=_BADGE_H,
+                  fill=ac, radius_mm=BT.RADIUS_PILL_MM)
             _txb(slide, period,
-                 l=cx - item_w // 2, t=row_top + Mm(2),
-                 w=item_w, h=spine_y - (row_top + Mm(2)) - dot_r - Mm(1),
-                 sz=sz_per, bold=True, color=ac, align=PP_ALIGN.CENTER)
+                 l=_BADGE_L, t=_BADGE_T,
+                 w=_BADGE_W, h=_BADGE_H,
+                 sz=sz_per, bold=True, color=BT.WHITE_HEX,
+                 align=PP_ALIGN.CENTER, wrap=False,
+                 valign=MSO_ANCHOR.MIDDLE)
 
             # Title — below dot
             title_top = spine_y + dot_r + Mm(3)
@@ -1418,10 +1439,11 @@ class BrandPptx:
             slide.shapes.add_picture(
                 bg_image_path, 0, 0, int(SLIDE_W), int(SLIDE_H))
 
-        # Oversized decorative number (behind chapter title, serves as texture)
+        # Oversized decorative number — serves as background texture.
+        # alpha=8 keeps it barely visible so it doesn't compete with foreground text.
         _txb(slide, chapter_num,
              l=Mm(28), t=Mm(38), w=Mm(160), h=Mm(83),
-             sz=260, bold=True, color=BT.PRIMARY_500_HEX)
+             sz=260, bold=True, color=BT.PRIMARY_500_HEX, alpha=8)
 
         # "CHAPTER · XX" small label
         _txb(slide, f"CHAPTER · {chapter_num}",
@@ -1455,10 +1477,12 @@ class BrandPptx:
             for j, (num, name) in enumerate(chapter_items):
                 item_y  = Mm(103.5) + j * Mm(6.4)
                 is_curr = (j == current_item)
+                # Active: secondary accent (#C8E13C) + bold for clear highlight.
+                # Inactive: neutral-400 (medium grey) — clearly receded.
                 _txb(slide, f"{num}  {name}",
                      l=SIDEBAR_X, t=item_y, w=sidebar_w, h=Mm(6),
-                     sz=9,
-                     color=BT.WHITE_HEX if is_curr else BT.NEUTRAL_200_HEX)
+                     sz=9, bold=is_curr,
+                     color=BT.SECONDARY_500_HEX if is_curr else BT.NEUTRAL_400_HEX)
 
         _footer(slide)
         return slide
