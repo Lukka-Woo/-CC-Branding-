@@ -7,16 +7,44 @@ Usage:
     color = BT.PRIMARY_500_HEX          # "#3EC99E"
     rgb   = BT.PRIMARY_500_RGB          # (49, 158, 124)
     emu   = BT.logo_emu(width_mm=48)    # (1728000, 436320)
+
+Visual behavior preferences are read from brand_config.json (sibling of tokens.json).
+Builders reference BT.DARK_ACCENT_CARDS_ENABLED / BT.MIN_CARDS_FOR_DARK / BT.MAX_DARK_PER_SLIDE
+instead of hard-coding policy — the UI layer only needs to write brand_config.json.
 """
 
 import json, os, pathlib
 from typing import Tuple
 
 _TOKENS_PATH = pathlib.Path(__file__).parent.parent / "tokens.json"
+_CONFIG_PATH = pathlib.Path(__file__).parent.parent / "brand_config.json"
 _ASSETS_PATH = pathlib.Path(__file__).parent.parent / "assets"
 
 with open(_TOKENS_PATH, encoding="utf-8") as _f:
     _T = json.load(_f)
+
+# ── Brand behavior config (brand_config.json) ────────────────────────────────
+# Separate from tokens.json: controls WHEN/HOW brand elements appear,
+# not what they look like. UI layer writes this file; builders read BT constants.
+try:
+    with open(_CONFIG_PATH, encoding="utf-8") as _fc:
+        _C = json.load(_fc)
+except (FileNotFoundError, ValueError):
+    _C = {}
+
+_vm  = _C.get("visual_mode", {})
+_cr  = _C.get("card_rules",  {})
+
+# Whether dark (#0E1216) accent cards are allowed at all.
+# Set to False to keep every slide light and airy regardless of script intent.
+DARK_ACCENT_CARDS_ENABLED: bool = _vm.get("dark_accent_cards", {}).get("enabled", True)
+
+# Minimum cards on a slide before a dark accent card is permitted.
+# Below this count the slide uses the full light palette only.
+MIN_CARDS_FOR_DARK: int = int(_cr.get("min_cards_for_dark", 5))
+
+# Maximum dark accent cards allowed per slide (applied after the min-cards gate).
+MAX_DARK_PER_SLIDE: int = int(_cr.get("max_dark_per_slide", 1))
 
 # ── Company identity ──────────────────────────────────────────────────────────
 # 修改公司全称时，请同步更新：

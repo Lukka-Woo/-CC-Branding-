@@ -570,9 +570,8 @@ class BrandPptx:
 
         for i, c in enumerate(cards[:3]):
             x          = ML + i * (C3_W + C3_GAP)
-            # Three-card layout is always ≤3 items — keep the full palette light and
-            # airy; dark cards are reserved for high-count slides where one accent
-            # card creates genuine contrast without dominating.
+            # Three-card is always ≤ 3 items, which is below BT.MIN_CARDS_FOR_DARK.
+            # Dark accent is structurally excluded here regardless of the config toggle.
             is_dark   = False
             is_danger = c.get("danger", False)
             if is_danger:
@@ -646,10 +645,14 @@ class BrandPptx:
         accent_colors = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX, BT.SECONDARY_500_HEX,
                          BT.WARNING_HEX,      BT.TEAL_HEX,           BT.PURPLE_HEX]
 
-        # Dark card budget: 0 when < 5 cards (light, airy palette), 1 when ≥ 5.
+        # Dark card budget driven by brand_config.json via BT constants:
+        #   enabled=False → 0 dark cards always
+        #   enabled=True  → 0 if n < MIN_CARDS_FOR_DARK, else MAX_DARK_PER_SLIDE
         # Extra dark requests are silently downgraded to their slot default color.
         _n_cards     = len(cards[:6])
-        _dark_budget = 1 if _n_cards >= 5 else 0
+        _dark_budget = (
+            BT.MAX_DARK_PER_SLIDE if _n_cards >= BT.MIN_CARDS_FOR_DARK else 0
+        ) if BT.DARK_ACCENT_CARDS_ENABLED else 0
         _dark_used   = 0
         _cards_adj   = []
         for _c in cards[:6]:
@@ -1582,10 +1585,11 @@ class BrandPptx:
         ROW_GAP = Mm(3.5)
         GRID_Y  = CONTENT_Y + Mm(3)
 
-        # Featured (dark) budget: same rule as card layouts —
-        # 0 when < 5 modules, 1 when ≥ 5.
+        # Featured (dark) budget — same policy as card layouts, driven by BT constants.
         _n_mods       = len(modules[:8])
-        _feat_budget  = 1 if _n_mods >= 5 else 0
+        _feat_budget  = (
+            BT.MAX_DARK_PER_SLIDE if _n_mods >= BT.MIN_CARDS_FOR_DARK else 0
+        ) if BT.DARK_ACCENT_CARDS_ENABLED else 0
         _feat_used    = 0
         _modules_adj  = []
         for _m in modules[:8]:
