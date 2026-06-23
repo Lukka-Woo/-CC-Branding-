@@ -295,7 +295,7 @@ def _add_logo_stacked(slide, reverse=True, l_mm=12, t_mm=10, h_mm=26):
 # ── Composite helpers: header / footer / card ─────────────────────────────────
 
 def _header(slide, title, subtitle="", label=""):
-    """Standard page header: title + optional subtitle."""
+    """Standard page header: label → title → subtitle (or accent line when no subtitle)."""
     y_title = Mm(5.5) if not label else Mm(11)
     if label:
         _txb(slide, label, l=ML, t=Mm(4.5), w=Mm(80), h=Mm(6),
@@ -305,6 +305,11 @@ def _header(slide, title, subtitle="", label=""):
     if subtitle:
         _txb(slide, subtitle, l=ML, t=Mm(24 if not label else 27),
              w=CW * 0.80, h=Mm(9), sz=12, color=BT.NEUTRAL_400_HEX)
+    else:
+        # No subtitle (with or without label): long thin gray divider below title
+        _t = Mm(30) if label else Mm(25)
+        _rect(slide, l=ML, t=_t, w=CW, h=Mm(0.3),
+              fill=BT.NEUTRAL_200_HEX)
 
 
 def _footer(slide, layout_label=""):
@@ -514,11 +519,12 @@ class BrandPptx:
                        bullets: Optional[List[str]] = None,
                        body_text: str = "",
                        subtitle: str = "",
+                       label: str = "",
                        slide_label: str = ""):
         """Standard white body slide with header, bullets or free text."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide, layout_label=slide_label)
 
         content_top = CONTENT_Y + Mm(4)
@@ -555,11 +561,12 @@ class BrandPptx:
                           right_content: str,
                           left_title: str = "",
                           right_title: str = "",
-                          subtitle: str = ""):
+                          subtitle: str = "",
+                          label: str = ""):
         """Two-column body slide with optional column subtitles."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide)
 
         top    = CONTENT_Y + Mm(5)
@@ -595,14 +602,15 @@ class BrandPptx:
     def add_three_cards(self,
                         title: str,
                         cards: List[Dict[str, str]],
-                        subtitle: str = ""):
+                        subtitle: str = "",
+                        label: str = ""):
         """
         Three-column feature cards.
         cards: [{"title": "...", "body": "...", "tag": "(optional)"}]
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide)
 
         card_top = CONTENT_Y + Mm(6)
@@ -663,7 +671,8 @@ class BrandPptx:
     def add_six_cards(self,
                       title: str,
                       cards: List[Dict[str, str]],
-                      subtitle: str = ""):
+                      subtitle: str = "",
+                      label: str = ""):
         """
         2-row × 3-column compact cards grid.
         cards: [{"title": "...", "body": "...", "tag": "(optional)"}] — up to 6
@@ -671,7 +680,7 @@ class BrandPptx:
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide)
 
         ROW_GAP = Mm(4)
@@ -765,6 +774,7 @@ class BrandPptx:
                       title: str,
                       stats: List[Tuple[str, str, str]],
                       subtitle: str = "",
+                      label: str = "",
                       colorful=None):
         """
         Stats card grid.
@@ -787,7 +797,7 @@ class BrandPptx:
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide)
 
         stats = list(stats[:8])
@@ -996,7 +1006,8 @@ class BrandPptx:
     def add_timeline(self,
                      title: str,
                      milestones: List[Tuple[str, str, str]],
-                     subtitle: str = ""):
+                     subtitle: str = "",
+                     label: str = ""):
         """
         Adaptive timeline — no hard cap on item count.
         - 1–6  items → single horizontal row (full content height)
@@ -1007,7 +1018,7 @@ class BrandPptx:
         n = len(milestones)
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide)
         if n == 0:
             return slide
@@ -1207,7 +1218,8 @@ class BrandPptx:
                         headers: List[str],
                         rows: List[List[str]],
                         subtitle: str = "",
-                        note: str = ""):
+                        note: str = "",
+                        label: str = ""):
         """
         Data table slide.
         Header row: #3EC99E bg + white text.
@@ -1218,7 +1230,7 @@ class BrandPptx:
 
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide)
 
         n_cols = len(headers)
@@ -1282,11 +1294,12 @@ class BrandPptx:
                              title: str,
                              body_text: str,
                              image_path: Optional[str] = None,
-                             subtitle: str = ""):
+                             subtitle: str = "",
+                             label: str = ""):
         """Left 60% text, right 40% image placeholder."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide)
 
         text_w  = int(CW * 0.58)
@@ -1312,11 +1325,12 @@ class BrandPptx:
                             title: str,
                             body_text: str,
                             image_path: Optional[str] = None,
-                            subtitle: str = ""):
+                            subtitle: str = "",
+                            label: str = ""):
         """Left 40% image, right 60% text."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle)
+        _header(slide, title, subtitle=subtitle, label=label)
         _footer(slide)
 
         img_w  = int(CW * 0.40)
@@ -1357,25 +1371,18 @@ class BrandPptx:
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, label=label)
         _footer(slide)
 
-        if label:
-            _txb(slide, label, l=ML, t=Mm(17), w=Mm(106), h=Mm(5),
-                 sz=7, bold=True, color=BT.PRIMARY_500_HEX)
-        _txb(slide, title, l=ML, t=Mm(22.6), w=Mm(133), h=Mm(18),
-             sz=36, bold=True, color=BT.NEUTRAL_900_HEX)
         if description:
-            _txb(slide, description, l=Mm(208), t=Mm(22.6), w=Mm(109), h=Mm(16),
+            _txb(slide, description, l=Mm(208), t=Mm(11), w=Mm(109), h=Mm(18),
                  sz=9, color=BT.NEUTRAL_700_HEX, wrap=True)
-
-        _rect(slide, l=ML, t=Mm(43.6), w=SLIDE_W - 2*ML, h=Mm(0.3),
-              fill=BT.NEUTRAL_200_HEX)
 
         CARD_W  = Mm(93.5)
         CARD_H  = Mm(56.4)
         COL_GAP = Mm(7.9)
         ROW_GAP = Mm(5.3)
-        GRID_Y  = Mm(55)
+        GRID_Y  = CONTENT_Y + Mm(4)
 
         for i, ch in enumerate(chapters[:6]):
             col   = i % 3
@@ -1596,20 +1603,8 @@ class BrandPptx:
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, label=label)
         _footer(slide)
-
-        # Thin top divider
-        _rect(slide, l=ML, t=Mm(40.9), w=SLIDE_W - 2*ML, h=Mm(0.2),
-              fill=BT.NEUTRAL_200_HEX)
-
-        # Section label
-        if label:
-            _txb(slide, label, l=ML, t=Mm(14.1), w=Mm(100), h=Mm(4),
-                 sz=7, bold=True, color=BT.PRIMARY_500_HEX)
-
-        # Title
-        _txb(slide, title, l=ML, t=Mm(19.8), w=Mm(257), h=Mm(14),
-             sz=28, bold=True, color=BT.NEUTRAL_900_HEX)
 
         LEFT_W = Mm(138)
 
