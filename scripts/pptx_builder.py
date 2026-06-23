@@ -27,6 +27,7 @@ Gradient title note:
 import os
 import re
 import math
+import copy
 from typing import List, Optional, Tuple, Dict, Any
 import scripts.brand_tokens as BT
 
@@ -150,14 +151,22 @@ def _apply_shape_gradient(shape, stops, angle_deg=135):
     spPr.insert(insert_idx, gf)
 
 
-def _rect(slide, l, t, w, h, fill=None, line=None, lw_pt=0.75, radius_mm=0):
-    """Plain rectangle. radius_mm > 0 → rounded rect with absolute mm corner radius."""
+def _rect(slide, l, t, w, h, fill=None, line=None, lw_pt=0.75, radius_mm=0, fill_alpha=100):
+    """Plain rectangle. radius_mm > 0 → rounded corners. fill_alpha 0–100 → semi-transparent fill."""
     s = slide.shapes.add_shape(5 if radius_mm > 0 else 1, int(l), int(t), int(w), int(h))
     if radius_mm > 0:
         _apply_radius(s, radius_mm, int(w), int(h))
     if fill:
         s.fill.solid()
         s.fill.fore_color.rgb = _rgb(fill)
+        if fill_alpha < 100:
+            spPr = s._element.find(qn("p:spPr"))
+            sf   = spPr.find(qn("a:solidFill"))
+            if sf is not None:
+                sc = sf.find(qn("a:srgbClr"))
+                if sc is not None:
+                    al = etree.SubElement(sc, qn("a:alpha"))
+                    al.set("val", str(int(fill_alpha * 1000)))
     else:
         s.fill.background()
     if line:
@@ -253,6 +262,131 @@ def _txb(slide, text, l, t, w, h,
             if _sc is not None:
                 etree.SubElement(_sc, qn("a:alpha")).set("val", str(int(alpha * 1000)))
     _set_run_fonts(run, en_font=en_font, cn_font=cn_font)
+    return tb
+
+
+def _clone_slide_from_master(dest_prs, master_path, slide_idx):
+    """Clone master PPTX slide[slide_idx] into dest_prs, remapping image relationships."""
+    _IMG_RT = ('http://schemas.openxmlformats.org/officeDocument/2006/'
+               'relationships/image')
+    src_prs   = Presentation(master_path)
+    src_slide = src_prs.slides[slide_idx]
+    dest_slide = dest_prs.slides.add_slide(dest_prs.slide_layouts[6])
+
+    # Build src→dest rId map for images
+    rId_map = {}
+    for src_rId, rel in src_slide.part.rels.items():
+        if rel.reltype == _IMG_RT and not rel.is_external:
+            new_rId = dest_slide.part.relate_to(rel._target, rel.reltype)
+            rId_map[src_rId] = new_rId
+
+    # Deep-copy spTree XML; remap rIds in one string pass
+    src_xml = etree.tostring(src_slide.shapes._spTree, encoding='unicode')
+    for old_id, new_id in rId_map.items():
+        src_xml = src_xml.replace(f'r:embed="{old_id}"', f'r:embed="{new_id}"')
+        src_xml = src_xml.replace(f'r:id="{old_id}"',    f'r:id="{new_id}"')
+
+    new_tree = etree.fromstring(src_xml)
+    dst_tree = dest_slide.shapes._spTree
+    dst_tree.getparent().replace(dst_tree, new_tree)
+    return dest_slide
+
+
+def _replace_shape_text(shape, parts):
+    """Replace a shape's text with multi-color parts: [(text, hex_color), ...].
+    '\\n' within a segment creates a new paragraph.
+    Preserves the original font name and size from the first run.
+    """
+    tf    = shape.text_frame
+    txBody = tf._txBody
+    _ns = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+    _q  = lambda t: f'{{{_ns}}}{t}'
+
+    # Save rPr template (font name + size) from first run; strip fill
+    rPr_tpl = None
+    for p in txBody.findall(_q('p')):
+        for r in p.findall(_q('r')):
+            rPr = r.find(_q('rPr'))
+            if rPr is not None:
+                rPr_tpl = copy.deepcopy(rPr)
+                for ft in [_q('solidFill'), _q('gradFill'), _q('pattFill'), _q('noFill')]:
+                    fe = rPr_tpl.find(ft)
+                    if fe is not None:
+                        rPr_tpl.remove(fe)
+            break
+        if rPr_tpl is not None:
+            break
+
+    # Save first paragraph's pPr (alignment, spacing)
+    first_pPr = None
+    fps = txBody.findall(_q('p'))
+    if fps:
+        pPr = fps[0].find(_q('pPr'))
+        if pPr is not None:
+            first_pPr = copy.deepcopy(pPr)
+
+    # Remove all existing paragraphs
+    for p in txBody.findall(_q('p')):
+        txBody.remove(p)
+
+    # Rebuild with new parts
+    cur_p       = None
+    first_done  = False
+    for text, color in parts:
+        for seg_i, seg in enumerate(text.split('\n')):
+            if cur_p is None or seg_i > 0:
+                cur_p = etree.SubElement(txBody, _q('p'))
+                if not first_done and first_pPr is not None:
+                    cur_p.insert(0, copy.deepcopy(first_pPr))
+                first_done = True
+            if not seg:
+                continue
+            r_el  = etree.SubElement(cur_p, _q('r'))
+            rPr_n = copy.deepcopy(rPr_tpl) if rPr_tpl is not None else etree.Element(_q('rPr'))
+            rPr_n.set('lang', 'zh-CN')
+            rPr_n.set('dirty', '0')
+            sf   = etree.SubElement(rPr_n, _q('solidFill'))
+            srgb = etree.SubElement(sf,    _q('srgbClr'))
+            srgb.set('val', color.lstrip('#'))
+            r_el.insert(0, rPr_n)
+            t_el = etree.SubElement(r_el, _q('t'))
+            t_el.text = seg
+
+    if not txBody.findall(_q('p')):          # safety: at least one paragraph
+        etree.SubElement(txBody, _q('p'))
+
+
+def _txb_runs(slide, parts, l, t, w, h, sz=42, bold=True, ls_pt=None):
+    """Multi-color text box. parts: [(text, hex_color), ...].
+    '\\n' in any text segment creates a new paragraph."""
+    tb = slide.shapes.add_textbox(int(l), int(t), int(w), int(h))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    cur_para = tf.paragraphs[0]
+    cur_para.alignment = PP_ALIGN.LEFT
+
+    def _apply_ls(para):
+        if ls_pt:
+            pPr = para._p.get_or_add_pPr()
+            lnSpc = etree.SubElement(pPr, qn("a:lnSpc"))
+            etree.SubElement(lnSpc, qn("a:spcPts"),
+                             attrib={"val": str(int(ls_pt * 100))})
+
+    _apply_ls(cur_para)
+    for text, color in parts:
+        segments = text.split("\n")
+        for i, seg in enumerate(segments):
+            if i > 0:
+                cur_para = tf.add_paragraph()
+                cur_para.alignment = PP_ALIGN.LEFT
+                _apply_ls(cur_para)
+            if seg:
+                run = cur_para.add_run()
+                run.text = seg
+                run.font.size = Pt(sz)
+                run.font.bold = bold
+                run.font.color.rgb = _rgb(color)
+                _set_run_fonts(run)
     return tb
 
 
@@ -435,29 +569,25 @@ class BrandPptx:
         slide = self._new_slide()
         _set_slide_bg(slide, BT.NEUTRAL_900_HEX)
 
-        # Left accent bar
-        _rect(slide, l=0, t=Mm(28), w=Mm(3.5), h=Mm(85),
-              fill=BT.PRIMARY_500_HEX)
-
-        # Stacked reverse logo top-left
-        _add_logo_stacked(slide, reverse=True, l_mm=13, t_mm=11, h_mm=26)
+        # Logo — aligned to left margin (ML)
+        _add_logo_stacked(slide, reverse=True, l_mm=21, t_mm=11, h_mm=26)
 
         # Gradient title
         _txb_gradient(slide, title,
-                      l=Mm(22), t=Mm(65), w=Mm(205), h=Mm(38),
+                      l=ML, t=Mm(65), w=Mm(205), h=Mm(38),
                       sz=42, bold=True, align=PP_ALIGN.LEFT,
                       stops=TITLE_GRADIENT)
 
         # Subtitle
         if subtitle:
             _txb(slide, subtitle,
-                 l=Mm(22), t=Mm(107), w=Mm(205), h=Mm(16),
+                 l=ML, t=Mm(107), w=Mm(205), h=Mm(16),
                  sz=16, color=BT.NEUTRAL_400_HEX)
 
         # Tagline
         if tagline:
             _txb(slide, tagline,
-                 l=Mm(22), t=Mm(126), w=Mm(205), h=Mm(10),
+                 l=ML, t=Mm(126), w=Mm(205), h=Mm(10),
                  sz=11, color=BT.PRIMARY_100_HEX)
 
         # Bottom bar
@@ -1444,7 +1574,8 @@ class BrandPptx:
                 arr_c   = BT.SUCCESS_HEX
                 line_c  = BT.PRIMARY_500_HEX
 
-            _rect(slide, l=cx, t=cy, w=CARD_W, h=CARD_H, fill=card_bg)
+            _rect(slide, l=cx, t=cy, w=CARD_W, h=CARD_H, fill=card_bg,
+                  radius_mm=BT.RADIUS_SM_MM)
 
             # Number — right-aligned, single line, no wrap; spans full card width so
             # the digit(s) naturally anchor to the top-right corner of the card.
@@ -1692,20 +1823,50 @@ class BrandPptx:
               fill=BT.NEUTRAL_900_HEX, radius_mm=BT.RADIUS_MD_MM)
 
         if right_panel and _items:
+            _ICON_SZ   = Mm(12)    # outer halo circle diameter
+            _INNER_SZ  = Mm(9)     # inner solid circle (icon bg)
+            _ICON_IMG  = Mm(5.5)   # PNG icon size
+            _ICON_L    = PANEL_X + Mm(8)
             for k, it in enumerate(_items):
                 iy     = PANEL_T + k * item_h + PANEL_PAD
                 accent = it.get("accent", BT.PRIMARY_500_HEX)
-                # Accent dot
-                _rect(slide, l=PANEL_X + Mm(9), t=iy,
-                      w=Mm(8.5), h=Mm(8.5), fill=accent, radius_mm=BT.RADIUS_PILL_MM)
+                icon   = it.get("icon", "")
+
+                # Outer halo: white semi-transparent circle (frosted glow on dark)
+                _halo_offset = (_ICON_SZ - _INNER_SZ) / 2
+                _rect(slide, l=_ICON_L, t=iy, w=_ICON_SZ, h=_ICON_SZ,
+                      fill=BT.WHITE_HEX, radius_mm=BT.RADIUS_PILL_MM, fill_alpha=12)
+
+                # Inner circle: accent color, fully opaque — clear icon background
+                _rect(slide, l=_ICON_L + _halo_offset, t=iy + _halo_offset,
+                      w=_INNER_SZ, h=_INNER_SZ,
+                      fill=accent, radius_mm=BT.RADIUS_PILL_MM)
+
+                # Icon PNG — lookup same as module_grid
+                if icon and _BRAND_ROOT:
+                    _stem = os.path.splitext(icon)[0]
+                    _candidates = [
+                        os.path.join(_BRAND_ROOT, "assets", "icons", "png", _stem + ".png"),
+                        os.path.join(_BRAND_ROOT, "assets", "icons", _stem + ".png"),
+                    ]
+                    _icon_path = next((c for c in _candidates if os.path.exists(c)), None)
+                    if _icon_path:
+                        _il = _ICON_L + (_ICON_SZ - _ICON_IMG) / 2
+                        _it = iy + (_ICON_SZ - _ICON_IMG) / 2
+                        slide.shapes.add_picture(_icon_path, int(_il), int(_it),
+                                                 width=int(_ICON_IMG), height=int(_ICON_IMG))
+
+                # Text column — offset right of icon circle
+                _TEXT_L = _ICON_L + _ICON_SZ + Mm(4)
+                _TEXT_W = PANEL_W - (_TEXT_L - PANEL_X) - Mm(4)
                 # Item label
                 _txb(slide, it.get("label", ""),
-                     l=PANEL_X + Mm(20), t=iy, w=PANEL_W - Mm(22), h=Mm(5),
+                     l=_TEXT_L, t=iy + Mm(0.5), w=_TEXT_W, h=Mm(5),
                      sz=7, bold=True, color=accent)
                 # Item text
                 _txb(slide, it.get("text", ""),
-                     l=PANEL_X + Mm(20), t=iy + Mm(5.5), w=PANEL_W - Mm(22), h=Mm(8),
-                     sz=14, bold=True, color=BT.WHITE_HEX, ls_pt=18)
+                     l=_TEXT_L, t=iy + Mm(5.5), w=_TEXT_W, h=Mm(8),
+                     sz=13, bold=True, color=BT.WHITE_HEX, ls_pt=17)
 
         # Bottom cards row (brand tone / core focus chips)
         return slide
@@ -1884,29 +2045,153 @@ class BrandPptx:
 
     # ── Closing Slide ─────────────────────────────────────────────────────────
 
-    def add_closing(self, message: str = "谢谢", contact: str = ""):
-        """Closing slide: dark background, gradient message, logo centered."""
+    def add_closing(self,
+                    slogan: str = "谢谢",
+                    slogan_label: str = "LET'S BUILD THE FUTURE TOGETHER",
+                    slogan_sub: str = "",
+                    slogan_parts=None,
+                    message: str = "",
+                    contact: str = ""):
+        """
+        Closing slide — fully code-generated (dark bg + right 2×2 contact cards).
+
+          slogan_label  small caps label above slogan
+          slogan        main text — gradient when slogan_parts=None
+          slogan_parts  [(text, hex_color), ...] for partial highlight; '\\n' = line break
+          slogan_sub    supporting paragraph below accent line
+        """
+        if message and not slogan:
+            slogan = message
+
         slide = self._new_slide()
         _set_slide_bg(slide, BT.NEUTRAL_900_HEX)
 
-        # Stacked logo centered top
-        _add_logo_stacked(slide, reverse=True,
-                          l_mm=int((SLIDE_W / Mm(1) - 24) / 2),
-                          t_mm=32, h_mm=24)
+        # Logo (top-left)
+        _add_logo_stacked(slide, reverse=True, l_mm=21, t_mm=11, h_mm=28)
 
-        # Gradient message
-        _txb_gradient(slide, message,
-                      l=ML, t=Mm(76),
-                      w=SLIDE_W - 2 * ML, h=Mm(40),
-                      sz=50, bold=True, align=PP_ALIGN.CENTER,
-                      stops=TITLE_GRADIENT)
+        # Top-right label
+        _txb(slide, "THANK YOU · CONTACT US",
+             l=Mm(220), t=Mm(13), w=Mm(98), h=Mm(5),
+             sz=8, color=BT.NEUTRAL_400_HEX, align=PP_ALIGN.RIGHT)
 
-        if contact:
-            _txb(slide, contact,
-                 l=ML, t=Mm(122),
-                 w=SLIDE_W - 2 * ML, h=Mm(12),
-                 sz=14, color=BT.NEUTRAL_400_HEX, align=PP_ALIGN.CENTER)
+        # ── Left slogan area ──────────────────────────────────────────
+        _SY = Mm(46)
 
+        if slogan_label:
+            _txb(slide, slogan_label,
+                 l=ML, t=_SY, w=Mm(170), h=Mm(6),
+                 sz=9, bold=True, color=BT.PRIMARY_500_HEX)
+            _SY += Mm(9)
+
+        _SLOGAN_T = _SY
+        _SLOGAN_H = Mm(52)
+
+        if slogan_parts:
+            _txb_runs(slide, slogan_parts,
+                      l=ML, t=_SLOGAN_T, w=Mm(170), h=_SLOGAN_H,
+                      sz=42, bold=True, ls_pt=52)
+        else:
+            _txb_gradient(slide, slogan,
+                          l=ML, t=_SLOGAN_T, w=Mm(170), h=_SLOGAN_H,
+                          sz=42, bold=True, align=PP_ALIGN.LEFT,
+                          stops=TITLE_GRADIENT, ls_pt=52)
+
+        _SY = _SLOGAN_T + _SLOGAN_H + Mm(4)
+
+        _rect(slide, l=ML, t=_SY, w=Mm(22), h=Mm(0.8), fill=BT.PRIMARY_500_HEX)
+        _SY += Mm(6)
+
+        if slogan_sub:
+            _txb(slide, slogan_sub,
+                 l=ML, t=_SY, w=Mm(155), h=Mm(20),
+                 sz=10, color=BT.NEUTRAL_400_HEX, ls_pt=15, wrap=True)
+
+        # ── Right 2×2 contact card grid ───────────────────────────────
+        GRID_X = Mm(208.1)
+        GRID_Y = Mm(46.2)
+        CARD_W = Mm(52.9)
+        CARD_H = Mm(56.4)
+        H_GAP  = Mm(3.5)
+        V_GAP  = Mm(3.6)
+
+        _CARDS = [
+            {"col": 0, "row": 0,
+             "accent": BT.PRIMARY_500_HEX,   "cat": "SALES",
+             "title": "销售对接",   "value": BT.COMPANY_PHONE,
+             "sub": "电话 / 微信号", "icon": "monitor-smartphone"},
+            {"col": 1, "row": 0,
+             "accent": BT.SECONDARY_500_HEX, "cat": "EMAIL",
+             "title": "合作邮箱",   "value": BT.COMPANY_EMAIL,
+             "sub": "24 小时内回复", "icon": "mail"},
+            {"col": 0, "row": 1,
+             "accent": BT.PRIMARY_500_HEX,   "cat": "WEBSITE",
+             "title": "公司官网",   "value": BT.COMPANY_WEBSITE,
+             "sub": "访问了解更多",  "icon": "shield-check"},
+            {"col": 1, "row": 1,
+             "accent": BT.SECONDARY_500_HEX, "cat": "WECHAT",
+             "title": "官方公众号",  "value": "未来方舟智能科技",
+             "sub": "关注公众号",   "icon": "message-circle"},
+        ]
+
+        for cd in _CARDS:
+            cx = GRID_X + cd["col"] * (CARD_W + H_GAP)
+            cy = GRID_Y + cd["row"] * (CARD_H + V_GAP)
+            ac = cd["accent"]
+
+            _rect(slide, l=cx, t=cy, w=CARD_W, h=CARD_H,
+                  fill=BT.WHITE_HEX, radius_mm=BT.RADIUS_SM_MM)
+
+            DOT_S = Mm(6.3)
+            DOT_L = cx + Mm(5.6)
+            DOT_T = cy + Mm(5.0)
+            _rect(slide, l=DOT_L, t=DOT_T, w=DOT_S, h=DOT_S,
+                  fill=ac, radius_mm=BT.RADIUS_PILL_MM)
+
+            _icon = cd.get("icon", "")
+            if _icon and _BRAND_ROOT:
+                _ip = os.path.join(_BRAND_ROOT, "assets", "icons", "png",
+                                   os.path.splitext(_icon)[0] + ".png")
+                if os.path.exists(_ip):
+                    _ISZ = Mm(3.2)
+                    slide.shapes.add_picture(
+                        _ip,
+                        int(DOT_L + (DOT_S - _ISZ) / 2),
+                        int(DOT_T + (DOT_S - _ISZ) / 2),
+                        width=int(_ISZ), height=int(_ISZ))
+
+            _txb(slide, cd["cat"],
+                 l=DOT_L + DOT_S + Mm(2), t=DOT_T + Mm(1.5),
+                 w=CARD_W - DOT_S - Mm(9), h=Mm(4),
+                 sz=7, bold=True, color=ac)
+
+            _txb(slide, cd["title"],
+                 l=DOT_L, t=cy + Mm(14),
+                 w=CARD_W - Mm(7), h=Mm(6),
+                 sz=10, bold=True, color=BT.NEUTRAL_900_HEX)
+
+            SUB_PAD = Mm(4)
+            SUB_L   = cx + SUB_PAD
+            SUB_T   = cy + Mm(22)
+            SUB_W   = CARD_W - 2 * SUB_PAD
+            SUB_H   = CARD_H - SUB_T + cy - SUB_PAD
+            _rect(slide, l=SUB_L, t=SUB_T, w=SUB_W, h=SUB_H,
+                  fill=BT.NEUTRAL_100_HEX, radius_mm=BT.RADIUS_SM_MM)
+
+            _txb(slide, cd["value"],
+                 l=SUB_L + Mm(3), t=SUB_T + Mm(3),
+                 w=SUB_W - Mm(6), h=SUB_H - Mm(10),
+                 sz=9, bold=True, color=BT.NEUTRAL_900_HEX, wrap=True)
+
+            if cd.get("sub"):
+                _txb(slide, cd["sub"],
+                     l=SUB_L + Mm(3), t=SUB_T + SUB_H - Mm(5.5),
+                     w=SUB_W - Mm(6), h=Mm(4.5),
+                     sz=7, color=BT.NEUTRAL_400_HEX)
+
+        # Footer + bottom bar
+        _txb(slide, f"© 2026 {BT.BRAND_NAME_EN} · {BT.BRAND_FULL_CN}",
+             l=ML, t=SLIDE_H - Mm(11), w=Mm(260), h=Mm(5),
+             sz=7, color=BT.NEUTRAL_400_HEX)
         _rect(slide, l=0, t=SLIDE_H - Mm(3.5), w=SLIDE_W, h=Mm(3.5),
               fill=BT.PRIMARY_500_HEX)
         return slide

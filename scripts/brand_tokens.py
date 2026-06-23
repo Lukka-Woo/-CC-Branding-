@@ -61,6 +61,11 @@ BRAND_TAGLINE  = _T["brand"]["tagline"]
 COMPANY_ADDRESS_CN = "上海市浦河创业中心（桂平路）302栋"
 COMPANY_ADDRESS_EN = "Building 302, Puhe Entrepreneurship Center (Guiping Road), Shanghai"
 
+# 联系信息 — 修改此处即可同步所有文档格式
+COMPANY_EMAIL   = "info@ark-techx.com"
+COMPANY_WEBSITE = "https://www.ark-techx.com"
+COMPANY_PHONE   = "17887924530"   # 电话 / 微信号
+
 # ── Colors — hex strings ──────────────────────────────────────────────────────
 PRIMARY_500_HEX   = _T["colors"]["primary"]["500"]
 PRIMARY_600_HEX   = _T["colors"]["primary"]["600"]

@@ -436,3 +436,4 @@ ls projects/sample/docs/test_*
 | 生成脚本未加正确的 sys.path.insert | 会导致 scripts 模块找不到 |
 | AI 自行修改 context.md | 项目提示词由人工维护，AI 只读不写 |
 | 跳过 Step 0 直接开始生成 | 无项目上下文会导致角色/风格/领域偏差 |
+| 在 gen_*.py 中硬编码邮箱、官网、电话 | 应使用 `BT.COMPANY_EMAIL` / `BT.COMPANY_WEBSITE` / `BT.COMPANY_PHONE`，修改一处全部生效 |
