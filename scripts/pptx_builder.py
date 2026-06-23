@@ -122,6 +122,34 @@ def _apply_radius(shape, radius_mm, w, h):
     gd.set("fmla", f"val {adj_val}")
 
 
+def _apply_shape_gradient(shape, stops, angle_deg=135):
+    """Replace a shape's fill with a linear gradient.
+    stops: [(pct_0_to_100, '#hexcolor'), ...]  angle_deg: clockwise from left."""
+    spPr = shape._element.find(qn("p:spPr"))
+    for fill_tag in [qn("a:solidFill"), qn("a:gradFill"), qn("a:pattFill"),
+                     qn("a:noFill"),    qn("a:blipFill")]:
+        el = spPr.find(fill_tag)
+        if el is not None:
+            insert_idx = list(spPr).index(el)
+            spPr.remove(el)
+            break
+    else:
+        insert_idx = len(list(spPr))
+
+    gf = etree.Element(qn("a:gradFill"))
+    gf.set("rotWithShape", "1")
+    gsLst = etree.SubElement(gf, qn("a:gsLst"))
+    for pct, hex_color in stops:
+        gs = etree.SubElement(gsLst, qn("a:gs"))
+        gs.set("pos", str(int(pct * 1000)))
+        srgb = etree.SubElement(gs, qn("a:srgbClr"))
+        srgb.set("val", hex_color.lstrip("#"))
+    lin = etree.SubElement(gf, qn("a:lin"))
+    lin.set("ang", str(int(angle_deg * 60000)))
+    lin.set("scaled", "0")
+    spPr.insert(insert_idx, gf)
+
+
 def _rect(slide, l, t, w, h, fill=None, line=None, lw_pt=0.75, radius_mm=0):
     """Plain rectangle. radius_mm > 0 → rounded rect with absolute mm corner radius."""
     s = slide.shapes.add_shape(5 if radius_mm > 0 else 1, int(l), int(t), int(w), int(h))
@@ -1609,39 +1637,63 @@ class BrandPptx:
         LEFT_W = Mm(138)
 
         # Body text
+        BODY_T = Mm(50)
+        BODY_H = Mm(30)
         _txb(slide, body_text,
-             l=ML, t=Mm(58.6), w=LEFT_W, h=Mm(30),
+             l=ML, t=BODY_T, w=LEFT_W, h=BODY_H,
              sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=17, wrap=True)
 
-        # Callout info boxes
+        # Callout cards — gradient fill + primary border + label pill
         if callout_items:
-            BOX_H = Mm(13.8)
+            ITEM_W = LEFT_W // 2 - Mm(3)
+            ITEM_H = Mm(24)
+            GAP_X  = Mm(6)
+            _GRAD  = [
+                (0,   BT.PRIMARY_100_HEX),   # #EAFAF5  light teal
+                (50,  "#EDFBEE"),              # light fresh green (success tint)
+                (100, BT.SECONDARY_100_HEX),  # #F8FBE7  light yellow-green
+            ]
             for k, item in enumerate(callout_items[:2]):
-                bx = ML + k * (LEFT_W // 2 + Mm(3))
-                by = Mm(91.1)
-                _rect(slide, l=bx, t=by, w=LEFT_W // 2 - Mm(3), h=BOX_H,
-                      fill=BT.BG_PAGE_HEX)
-                _rect(slide, l=bx, t=by, w=Mm(0.5), h=BOX_H,
-                      fill=BT.PRIMARY_500_HEX)
+                bx = ML + k * (ITEM_W + GAP_X)
+                by = BODY_T + BODY_H + Mm(8)  # 8mm gap below body text
+                # Gradient rounded card with primary border
+                card = _rect(slide, l=bx, t=by, w=ITEM_W, h=ITEM_H,
+                             fill=BT.PRIMARY_100_HEX,
+                             line=BT.PRIMARY_500_HEX, lw_pt=0.4,
+                             radius_mm=BT.RADIUS_MD_MM)
+                _apply_shape_gradient(card, _GRAD, angle_deg=135)
+                # Label pill
+                _rect(slide, l=bx + Mm(5), t=by + Mm(5), w=Mm(24), h=Mm(6.5),
+                      fill=BT.PRIMARY_500_HEX, radius_mm=BT.RADIUS_PILL_MM)
                 _txb(slide, item.get("label", ""),
-                     l=bx + Mm(4), t=by + Mm(2.8), w=Mm(60), h=Mm(4),
-                     sz=6, color=BT.NEUTRAL_400_HEX)
+                     l=bx + Mm(5), t=by + Mm(5), w=Mm(24), h=Mm(6.5),
+                     sz=7, bold=True, color=BT.WHITE_HEX,
+                     align=PP_ALIGN.CENTER, wrap=False)
+                # Value text
                 _txb(slide, item.get("value", ""),
-                     l=bx + Mm(4), t=by + Mm(7.5), w=Mm(60), h=Mm(5),
-                     sz=11, color=BT.NEUTRAL_900_HEX)
+                     l=bx + Mm(5), t=by + Mm(13.5), w=ITEM_W - Mm(10), h=Mm(7),
+                     sz=10, bold=True, color=BT.NEUTRAL_900_HEX)
 
-        # Right dark panel
-        PANEL_X = Mm(172.8)
-        PANEL_W = SLIDE_W - PANEL_X - MR
-        _rect(slide, l=PANEL_X, t=Mm(49.4), w=PANEL_W, h=Mm(53),
-              fill=BT.NEUTRAL_900_HEX)
+        # Right dark panel — height is derived from item count so top == bottom padding
+        PANEL_X   = Mm(172.8)
+        PANEL_W   = SLIDE_W - PANEL_X - MR
+        PANEL_T   = Mm(49.4)
+        PANEL_PAD = Mm(9)       # equal top / bottom inner padding
+        item_h    = Mm(15.5)    # row stride (dot + label + text)
+        ITEM_TEXT_H = Mm(13.5)  # label(5mm) + gap(0.5mm) + text-box(8mm)
 
-        if right_panel:
-            PANEL_Y = Mm(49.4)
-            items   = right_panel.get("items", [])
-            item_h  = Mm(15.5)
-            for k, it in enumerate(items[:3]):
-                iy     = PANEL_Y + k * item_h + Mm(8)
+        _items = right_panel.get("items", [])[:3] if right_panel else []
+        n      = len(_items)
+        # content bottom (rel to panel top) = first-item offset + (n-1)*stride + single-item height
+        content_h = PANEL_PAD + (max(n - 1, 0) * item_h) + ITEM_TEXT_H
+        PANEL_H   = content_h + PANEL_PAD
+
+        _rect(slide, l=PANEL_X, t=PANEL_T, w=PANEL_W, h=PANEL_H,
+              fill=BT.NEUTRAL_900_HEX, radius_mm=BT.RADIUS_MD_MM)
+
+        if right_panel and _items:
+            for k, it in enumerate(_items):
+                iy     = PANEL_T + k * item_h + PANEL_PAD
                 accent = it.get("accent", BT.PRIMARY_500_HEX)
                 # Accent dot
                 _rect(slide, l=PANEL_X + Mm(9), t=iy,
