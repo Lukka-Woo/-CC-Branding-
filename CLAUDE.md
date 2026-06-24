@@ -219,15 +219,137 @@ doc.save(os.path.join(_DOCS, "output.docx"))
 ### PPTX
 
 ```python
+# ── API 速查（不是结构模板，顺序由内容决定）──────────────────────
 from scripts.pptx_builder import BrandPptx
+import scripts.brand_tokens as BT
 
 prs = BrandPptx()
-prs.add_cover("标题", "副标题")
-prs.add_divider("章节标题")
-prs.add_body_slide("标题", content)
+prs.add_cover(...)            # 深色封面
+prs.add_cover_light(...)      # 浅色封面（报告风）
+prs.add_toc(...)              # 目录（可选，内容超过 5 页且有章节结构时才需要）
+prs.add_divider_rich(...)     # 章节分隔页（章节数 ≥ 3 时才用，章节数少时直接省略）
+prs.add_body_slide(...)       # 纯文字 / 要点列表
+prs.add_two_col_slide(...)    # 两列对比
+prs.add_three_cards(...)      # 三并列（≤3 项）
+prs.add_six_cards(...)        # 六并列（4-6 项）
+prs.add_big_stats(...)        # 核心指标（≤8 项）
+prs.add_timeline(...)         # 时间轴 / 步骤流程（≤5 水平，6+ 蛇形）
+prs.add_quote(...)            # 引用 / 佐证（深色背景）
+prs.add_table_slide(...)      # 数据表格
+prs.add_module_grid(...)      # 功能/模块矩阵（≤8 项）
+prs.add_about_slide(...)      # 公司介绍
+prs.add_closing(...)          # 结尾
 prs.save(os.path.join(_DOCS, "output.pptx"))
 ```
-- 比例：16:9 | 封面背景：`#0E1216` | 分隔页：`#3EC99E`
+
+> **结构原则（重要）：PPT 结构必须从内容逻辑出发，不得套用任何现有 PPT 的章节结构。**
+>
+> - 每次新建 PPT 前，先问：**这份 PPT 的核心叙事逻辑是什么？** 再根据内容选版式、定顺序
+> - 章节数、章节名、每章页数——完全由内容决定，不存在"标准几章"
+> - 同一个版式（如 Three Cards）在不同 PPT 里位置可以完全不同
+> - 如果内容不需要 TOC 或章节分隔页，就不加——不要为了结构感而填充
+> - 参考现有 PPT 只看**版式效果**，不看**章节结构**
+
+#### 布局网格
+
+| 常量 | 值 | 含义 |
+|---|---|---|
+| 画布 | 16:9，Inches(13.33) × Inches(7.5) | 标准宽屏 |
+| 左/右边距 ML/MR | 21 mm | 所有内容元素的水平起点 |
+| 可用内容宽 CW | 画布宽 − ML − MR ≈ 297 mm | |
+| 页眉区 HEADER_H | 36 mm（从顶部起） | label + 大标题 + subtitle |
+| 页脚区 FOOTER_H | 13 mm（从底部起） | logo + 辅助标签 |
+| 内容区 CONTENT_Y/CONTENT_H | 36 mm 起，高约 92 mm | 卡片、文字、图表的有效区域 |
+| 两列间距 C2_GAP | 6 mm | two_col_slide 用 |
+| 三列间距 C3_GAP | 5 mm | three_cards 用 |
+
+#### 标题区（Header）解剖
+
+```
+[label]          ← 9pt, PRIMARY_500 (#3EC99E)，大写英文，顶部 4.5mm
+[大标题]         ← 26pt bold, NEUTRAL_900 (#0E1216)，有 label 时 11mm 处，否则 5.5mm 处
+[装饰元素]       ← title_deco（见下方装饰规则）
+[副标题 / 分隔线] ← subtitle 12pt NEUTRAL_400；无 subtitle 时画 0.3mm 灰色分隔线
+```
+
+- label 是**英文大写**辅助标签，用于标注章节归属（如 `PLATFORM CAPABILITIES`）
+- 大标题只显示**单行**（≤15 字为宜），超长会压缩字体
+- subtitle 用于补充说明，12pt，不超过一行
+
+#### 页脚（Footer）
+
+- 右下角：横向 logo PNG，高 7mm（所有内容页统一）
+- 封面/分隔页/结尾页：logo 单独处理，不调用 `_footer()`
+
+#### 卡片颜色语义（全系统统一）
+
+适用于 `add_three_cards`、`add_six_cards`、`add_big_stats`、`add_module_grid` 等所有卡片类版式。
+
+| 底色 | Accent 色 | 语义 | 优先级 |
+|---|---|---|---|
+| PRIMARY_100 `#EAFAF5` | PRIMARY_500 `#3EC99E` | 标准/主要特性 | ★★★ |
+| NEUTRAL_100 `#F2F3F5` | SUCCESS_HEX `#5CC13C` | 安全/补充/次要 | ★★★ |
+| SECONDARY_100 `#F8FBE7` | SECONDARY_500 `#C8E13C` | 创新/机遇 | ★★★ |
+| CARD_ORANGE_BG `#FFF1DF` | WARNING_HEX `#FFB928` | 高风险/注意 | ★★★ |
+| CARD_TEAL_BG `#E0F7FA` | TEAL_HEX `#3CC5CF` | 扩展/生态 | ★★ |
+| CARD_PURPLE_BG `#F0E8FF` | PURPLE_HEX `#8255E1` | 战略/特殊（颜色不够时用） | ★★ |
+| NEUTRAL_900 `#0E1216` | SECONDARY_500 `#C8E13C` + 白字 | **突出/亮点/强调**（非危险） | ★★★ 深色卡 |
+| CARD_DANGER_BG `#FFF2F2` | DANGER_HEX `#F12D2D` | **危险/风险**（确实是危险才用） | ★ 慎用 |
+
+**深色卡规则（hard rule）：**
+- 卡片数 < 5（三卡版式）：**禁止**深色卡，三卡已自动屏蔽
+- 卡片数 ≥ 5：最多 **1 张**深色卡，在 `cards` dict 里加 `"dark": True`
+- 深色卡数量由 `brand_config.json` 的 `card_rules.max_dark_per_slide` 控制，**不硬编码**
+
+#### 各版式选型速查
+
+| 场景 | 推荐版式 | 关键参数 |
+|---|---|---|
+| 演讲开场 | `add_cover` | title/subtitle/tagline |
+| 浅色开场（报告风） | `add_cover_light` | title/subtitle/date_or_meta |
+| 章节过渡 | `add_divider_rich` | chapter_num/chapter_title/chapter_items/current_item |
+| 目录页 | `add_toc` | chapters 列表（num/title/subtitle/state） |
+| 文字要点/纯文字 | `add_body_slide` | bullets 列表 或 body_text 字符串 |
+| 两侧对比 | `add_two_col_slide` | left/right title + content，会自动加竖向分隔线 |
+| 3个并列特性 | `add_three_cards` | cards ≤3，无深色卡 |
+| 6个并列特性 | `add_six_cards` | cards ≤6，最多1张深色卡 |
+| 核心指标 ≤4 | `add_big_stats` | stats 4项，colorful 自动=True（两列彩色） |
+| 核心指标 5-8 | `add_big_stats` | stats 5-8项，colorful 自动=False（中性白底） |
+| 功能模块矩阵 ≤8 | `add_module_grid` | modules 含 num/icon/title/en/bullets |
+| 时间轴 ≤5步 | `add_timeline` | 自动渲染为**水平**单行 |
+| 时间轴 6步+ | `add_timeline` | 自动渲染为**双行蛇形**（wrap 模式） |
+| 数据表格 | `add_table_slide` | headers/rows/note；Header 行绿底白字，斑马纹 |
+| 引用/佐证/数据背书 | `add_quote` | 深色背景，大引号，作者署名；**不加 title_deco** |
+| 公司介绍 | `add_about_slide` | body_text + callout_items + right_panel |
+| 结尾/Call to Action | `add_closing` | slogan_parts（多色分段）+ slogan_sub |
+
+#### 正文排版数值
+
+| 元素 | 字号 | 颜色 | 行距 |
+|---|---|---|---|
+| 大标题（header） | 26pt bold | NEUTRAL_900 | — |
+| 副标题（header subtitle） | 12pt | NEUTRAL_400 | — |
+| label（section tag） | 9pt | PRIMARY_500 | — |
+| 两列列标题 | 13pt bold | PRIMARY_500 | — |
+| 两列正文 | 14pt | NEUTRAL_700 | 22pt |
+| 子弹点（body_slide） | 17pt | NEUTRAL_700 | 21pt + 8pt 段前 |
+| 正文段落（body_text） | 16pt | NEUTRAL_700 | 26pt |
+| 卡片标题 | 16pt bold | NEUTRAL_900 | — |
+| 卡片 tag（eyebrow） | 9pt bold | accent 色 | — |
+| 卡片正文 | 13pt | NEUTRAL_700 | 18pt |
+| 统计数值（big_stats） | 44pt bold | accent 色 | — |
+| 统计标签 | 14pt bold | NEUTRAL_900 | — |
+| 统计说明 | 12pt | NEUTRAL_700 | 18pt |
+
+#### 封面/分隔/结尾页 渐变标题色
+
+封面（`add_cover`）、章节页（`add_divider*`）、结尾页（`add_closing`）的主标题均使用三色渐变：
+
+```
+PRIMARY_500 #3EC99E → SUCCESS_HEX #5CC13C → SECONDARY_500 #C8E13C
+```
+
+普通内容页标题（`_header`）**不使用渐变**，用纯色 NEUTRAL_900。
 
 #### PPTX 装饰性元素（Decorations）
 
