@@ -37,6 +37,36 @@ import scripts.brand_tokens as BT
 _BRAND_ROOT: str = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _ICONS_DIR:  str = os.path.join(_BRAND_ROOT, "assets", "icons")
 
+# ── Decorative element paths — A/B/C 三系列 ──────────────────────────────────
+# 规则：每页最多使用一个装饰，避免页面过于花哨。
+#   A 系列（Primary #3EC99E）— 白色/浅色背景页面（最常用）
+#   B 系列（Success  #5CC13C）— 灰色背景 / 整页图片页面（较少用）
+#   C 系列（Secondary #C8E13C）— 深色背景页面（如 add_cover / add_closing）
+# 同一系列的四种装饰：underline / circle / arrow1 / arrow2
+_DECO_DIR: str = os.path.join(_BRAND_ROOT, "assets", "装饰性元素")
+_DECO_SERIES: dict = {
+    "a": {
+        "underline": (os.path.join(_DECO_DIR, "A下划_Main Dec:重点:@4x.png"), 9.87),
+        "circle":    (os.path.join(_DECO_DIR, "A画圈_答案@4x.png"),           3.56),
+        "arrow1":    (os.path.join(_DECO_DIR, "A箭头1@4x.png"),               3.15),
+        "arrow2":    (os.path.join(_DECO_DIR, "A箭头2@4x.png"),               3.63),
+    },
+    "b": {
+        "underline": (os.path.join(_DECO_DIR, "B下划@4x.png"),  9.87),
+        "circle":    (os.path.join(_DECO_DIR, "B画圈@4x.png"),  3.56),
+        "arrow1":    (os.path.join(_DECO_DIR, "B箭头1@4x.png"), 3.14),
+        "arrow2":    (os.path.join(_DECO_DIR, "B箭头2@4x.png"), 3.63),
+    },
+    "c": {
+        "underline": (os.path.join(_DECO_DIR, "C下划@4x.png"),  10.32),
+        "circle":    (os.path.join(_DECO_DIR, "C画圈@4x.png"),  3.61),
+        "arrow1":    (os.path.join(_DECO_DIR, "C箭头1@4x.png"), 3.10),
+        "arrow2":    (os.path.join(_DECO_DIR, "C箭头2@4x.png"), 3.63),
+    },
+}
+_DECO_A: dict = _DECO_SERIES["a"]   # backward-compat alias
+_DECO_CHAR_W_MM: float = 8.1        # 26pt bold CJK 估算字宽 (mm/字)
+
 from pptx import Presentation
 from pptx.util import Inches, Pt, Mm, Emu
 from pptx.dml.color import RGBColor
@@ -454,16 +484,117 @@ def _add_logo_stacked(slide, reverse=True, l_mm=12, t_mm=10, h_mm=26):
     return slide.shapes.add_picture(path, Mm(l_mm), Mm(t_mm), width=lw, height=lh)
 
 
+# ── Decorative element helpers ───────────────────────────────────────────────
+
+def _send_to_back(slide, shape):
+    """Move shape to bottom of z-order so it renders behind all existing shapes."""
+    sp     = shape._element
+    spTree = slide.shapes._spTree
+    spTree.remove(sp)
+    # index 0 = cNvGrpSpPr, index 1 = grpSpPr → shapes start at index 2
+    spTree.insert(2, sp)
+
+
+def _deco_img(slide, key: str, l_mm: float, t_mm: float, w_mm: float,
+              send_back: bool = False, series: str = "a"):
+    """Place a brand decorative PNG at the given position.
+    key:       'underline' | 'circle' | 'arrow1' | 'arrow2'
+    series:    'a' (white bg, primary)  | 'b' (gray/image bg, success)
+               'c' (dark bg, secondary)
+    send_back: move behind all existing shapes (use for circle to show text through it).
+    """
+    entry = _DECO_SERIES.get(series, _DECO_A).get(key)
+    if not entry:
+        return None
+    path, ratio = entry
+    if not os.path.exists(path):
+        return None
+    pic = slide.shapes.add_picture(path, Mm(l_mm), Mm(t_mm),
+                                   width=Mm(w_mm), height=Mm(w_mm / ratio))
+    if send_back:
+        _send_to_back(slide, pic)
+    return pic
+
+
+_DECO_MIN_CHARS: int = 4   # 装饰笔画最小有效宽度（字符数）
+# 规则：装饰的视觉宽度 ≥ 4 字，避免太细显得单薄。
+# char_count 仍表示目标词的实际字数（用于确定锚点中心），
+# 渲染宽度取 max(char_count, _DECO_MIN_CHARS)，并以目标词中心为基准居中。
+# 示例：char_start=0, char_count=2（"八大"）→ 渲染宽=4字，居中后从 "八"左边 1字处开始，
+#        但左边界不超过 ML；char_start=7, char_count=4（"三大困局"）→ 正好4字，保持原位。
+
+
+def _apply_title_deco(slide, deco: dict, y_title_mm: float, title_sz_pt: float = 26.0):
+    """Apply one decorative element to the header title area.
+
+    deco keys:
+      type       : "underline" | "circle"          (required)
+      char_start : 0-based index of first target char (default 0)
+      char_count : number of chars to cover          (default 3)
+      char_w_mm  : override per-char width in mm     (default _DECO_CHAR_W_MM ≈ 8.1mm)
+      series     : "a" | "b" | "c"                  (default "a")
+
+    Width rule (enforced automatically):
+      Rendered width = max(char_count, _DECO_MIN_CHARS) chars, centered on the target word.
+      This keeps the decorative stroke visually consistent (~4-char width) regardless
+      of whether the highlighted word is 2 chars or 6.
+
+    Placement:
+      underline → 1mm below title baseline, centered on the target chars
+      circle    → bottom-aligned with title baseline, centered on the target chars,
+                  rendered behind the title textbox so text reads through it
+    """
+    deco_type  = deco.get("type", "underline")
+    char_start = deco.get("char_start", 0)
+    char_count = deco.get("char_count", 3)
+    char_w     = deco.get("char_w_mm", _DECO_CHAR_W_MM)
+    series     = deco.get("series", "a")
+    ml_mm      = 21.0                            # ML = Mm(21) → 21mm
+    line_h_mm  = title_sz_pt * 0.353 * 1.1      # ≈10.1mm for 26pt
+    title_bot  = y_title_mm + line_h_mm
+
+    # Enforce minimum visual width, centered on the target word
+    eff_chars  = max(char_count, _DECO_MIN_CHARS)
+    word_cx    = char_start * char_w + char_count * char_w / 2   # center of target word (from ML)
+    raw_l      = ml_mm + word_cx - eff_chars * char_w / 2        # centered placement
+    l_mm       = max(ml_mm, raw_l)                               # never bleed past left margin
+    w_mm       = eff_chars * char_w
+
+    if deco_type == "underline":
+        _deco_img(slide, "underline",
+                  l_mm = l_mm,
+                  t_mm = title_bot + 1.0,
+                  w_mm = w_mm, series = series)
+
+    elif deco_type == "circle":
+        ratio = _DECO_SERIES.get(series, _DECO_A).get("circle", (None, 3.56))[1]
+        cw    = w_mm + 8.0                              # extra left/right padding for circle
+        cl    = max(ml_mm, l_mm - 4.0)
+        _deco_img(slide, "circle",
+                  l_mm = cl,
+                  t_mm = title_bot - cw / ratio,        # bottom-aligned with title baseline
+                  w_mm = cw, series = series,
+                  send_back = True)                      # render below title text
+
+
 # ── Composite helpers: header / footer / card ─────────────────────────────────
 
-def _header(slide, title, subtitle="", label=""):
-    """Standard page header: label → title → subtitle (or accent line when no subtitle)."""
-    y_title = Mm(5.5) if not label else Mm(11)
+def _header(slide, title, subtitle="", label="", title_deco=None):
+    """Standard page header: label → title → subtitle (or accent line when no subtitle).
+
+    title_deco: None | dict — add ONE decorative element below/around the title.
+      {"type": "underline"|"circle", "char_start": int, "char_count": int}
+      Maximum one decoration per slide. circle renders behind the title text.
+    """
+    y_title_mm = 5.5 if not label else 11.0
+    y_title    = Mm(y_title_mm)
     if label:
         _txb(slide, label, l=ML, t=Mm(4.5), w=Mm(80), h=Mm(6),
              sz=9, color=BT.PRIMARY_500_HEX)
     _txb(slide, title, l=ML, t=y_title, w=CW * 0.82, h=Mm(18),
          sz=26, bold=True, color=BT.NEUTRAL_900_HEX)
+    if title_deco:
+        _apply_title_deco(slide, title_deco, y_title_mm=y_title_mm)
     if subtitle:
         _txb(slide, subtitle, l=ML, t=Mm(24 if not label else 27),
              w=CW * 0.80, h=Mm(9), sz=12, color=BT.NEUTRAL_400_HEX)
@@ -678,11 +809,12 @@ class BrandPptx:
                        body_text: str = "",
                        subtitle: str = "",
                        label: str = "",
-                       slide_label: str = ""):
+                       slide_label: str = "",
+                       title_deco=None):
         """Standard white body slide with header, bullets or free text."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide, layout_label=slide_label)
 
         content_top = CONTENT_Y + Mm(4)
@@ -720,11 +852,12 @@ class BrandPptx:
                           left_title: str = "",
                           right_title: str = "",
                           subtitle: str = "",
-                          label: str = ""):
+                          label: str = "",
+                          title_deco=None):
         """Two-column body slide with optional column subtitles."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
         top    = CONTENT_Y + Mm(5)
@@ -761,14 +894,15 @@ class BrandPptx:
                         title: str,
                         cards: List[Dict[str, str]],
                         subtitle: str = "",
-                        label: str = ""):
+                        label: str = "",
+                        title_deco=None):
         """
         Three-column feature cards.
         cards: [{"title": "...", "body": "...", "tag": "(optional)"}]
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
         card_top = CONTENT_Y + Mm(6)
@@ -830,7 +964,8 @@ class BrandPptx:
                       title: str,
                       cards: List[Dict[str, str]],
                       subtitle: str = "",
-                      label: str = ""):
+                      label: str = "",
+                      title_deco=None):
         """
         2-row × 3-column compact cards grid.
         cards: [{"title": "...", "body": "...", "tag": "(optional)"}] — up to 6
@@ -838,7 +973,7 @@ class BrandPptx:
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
         ROW_GAP = Mm(4)
@@ -933,7 +1068,8 @@ class BrandPptx:
                       stats: List[Tuple[str, str, str]],
                       subtitle: str = "",
                       label: str = "",
-                      colorful=None):
+                      colorful=None,
+                      title_deco=None):
         """
         Stats card grid.
         colorful=None (auto): ≤4 items → 2-col colorful; 5+ items → 2-row neutral
@@ -955,7 +1091,7 @@ class BrandPptx:
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
         stats = list(stats[:8])
@@ -1165,7 +1301,8 @@ class BrandPptx:
                      title: str,
                      milestones: List[Tuple[str, str, str]],
                      subtitle: str = "",
-                     label: str = ""):
+                     label: str = "",
+                     title_deco=None):
         """
         Adaptive timeline — no hard cap on item count.
         - 1–6  items → single horizontal row (full content height)
@@ -1176,7 +1313,7 @@ class BrandPptx:
         n = len(milestones)
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
         if n == 0:
             return slide
@@ -1377,7 +1514,8 @@ class BrandPptx:
                         rows: List[List[str]],
                         subtitle: str = "",
                         note: str = "",
-                        label: str = ""):
+                        label: str = "",
+                        title_deco=None):
         """
         Data table slide.
         Header row: #3EC99E bg + white text.
@@ -1388,7 +1526,7 @@ class BrandPptx:
 
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
         n_cols = len(headers)
@@ -1453,11 +1591,12 @@ class BrandPptx:
                              body_text: str,
                              image_path: Optional[str] = None,
                              subtitle: str = "",
-                             label: str = ""):
+                             label: str = "",
+                             title_deco=None):
         """Left 60% text, right 40% image placeholder."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
         text_w  = int(CW * 0.58)
@@ -1484,11 +1623,12 @@ class BrandPptx:
                             body_text: str,
                             image_path: Optional[str] = None,
                             subtitle: str = "",
-                            label: str = ""):
+                            label: str = "",
+                            title_deco=None):
         """Left 40% image, right 60% text."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
         img_w  = int(CW * 0.40)
@@ -1517,7 +1657,8 @@ class BrandPptx:
                 title: str,
                 chapters: List[Dict[str, str]],
                 label: str = "TABLE OF CONTENTS",
-                description: str = ""):
+                description: str = "",
+                title_deco=None):
         """
         2×3 chapter card grid TOC.
         chapters: [{"num":"01","title":"关于我们","subtitle":"公司简介·愿景","state":"done|current|upcoming"}]
@@ -1529,7 +1670,7 @@ class BrandPptx:
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, label=label)
+        _header(slide, title, label=label, title_deco=title_deco)
         _footer(slide)
 
         if description:
@@ -1542,6 +1683,11 @@ class BrandPptx:
         ROW_GAP = Mm(5.3)
         GRID_Y  = CONTENT_Y + Mm(4)
 
+        # Arrow button: 6.3×6.3mm, right-aligned inside card (master P2 measurement)
+        ARR_SZ  = Mm(6.3)
+        ARR_L   = CARD_W - ARR_SZ - Mm(5.6)   # 81.4mm from card left
+        ARR_T   = Mm(14.6)                     # from card top
+
         for i, ch in enumerate(chapters[:6]):
             col   = i % 3
             row   = i // 3
@@ -1553,48 +1699,57 @@ class BrandPptx:
                 card_bg = BT.NEUTRAL_900_HEX
                 num_c   = BT.PRIMARY_500_HEX
                 ttl_c   = BT.WHITE_HEX
-                sub_c   = BT.NEUTRAL_200_HEX
+                sub_c   = BT.NEUTRAL_400_HEX
                 arr_bg  = BT.PRIMARY_500_HEX
                 arr_c   = BT.WHITE_HEX
                 line_c  = BT.PRIMARY_500_HEX
             elif state == "upcoming":
                 card_bg = BT.BG_PAGE_HEX
-                num_c   = BT.NEUTRAL_900_HEX
+                num_c   = BT.NEUTRAL_400_HEX
                 ttl_c   = BT.NEUTRAL_900_HEX
-                sub_c   = BT.NEUTRAL_700_HEX
+                sub_c   = BT.NEUTRAL_400_HEX
                 arr_bg  = BT.NEUTRAL_100_HEX
-                arr_c   = BT.NEUTRAL_700_HEX
-                line_c  = BT.NEUTRAL_400_HEX
+                arr_c   = BT.NEUTRAL_400_HEX
+                line_c  = BT.NEUTRAL_200_HEX
             else:  # done
                 card_bg = BT.BG_PAGE_HEX
                 num_c   = BT.PRIMARY_500_HEX
                 ttl_c   = BT.NEUTRAL_900_HEX
                 sub_c   = BT.NEUTRAL_700_HEX
                 arr_bg  = BT.PRIMARY_100_HEX
-                arr_c   = BT.SUCCESS_HEX
+                arr_c   = BT.PRIMARY_500_HEX
                 line_c  = BT.PRIMARY_500_HEX
 
+            # Card background (no border — visual hierarchy via number + arrow)
             _rect(slide, l=cx, t=cy, w=CARD_W, h=CARD_H, fill=card_bg,
                   radius_mm=BT.RADIUS_SM_MM)
 
-            # Number — right-aligned, single line, no wrap; spans full card width so
-            # the digit(s) naturally anchor to the top-right corner of the card.
+            # Large chapter number — top-left
             _txb(slide, ch.get("num", ""),
-                 l=cx + Mm(5.6), t=cy + Mm(4), w=CARD_W - Mm(11.2), h=Mm(17),
-                 sz=44, bold=True, color=num_c,
-                 align=PP_ALIGN.RIGHT, wrap=False)
+                 l=cx + Mm(5.6), t=cy + Mm(5.6), w=Mm(20), h=Mm(15.5),
+                 sz=44, bold=True, color=num_c, wrap=False)
 
+            # Arrow button — top-right (pill circle + "→" text)
+            _rect(slide, l=cx + ARR_L, t=cy + ARR_T, w=ARR_SZ, h=ARR_SZ,
+                  fill=arr_bg, radius_mm=BT.RADIUS_PILL_MM)
+            _txb(slide, "→",
+                 l=cx + ARR_L, t=cy + ARR_T + Mm(0.6), w=ARR_SZ, h=ARR_SZ,
+                 sz=8, bold=True, color=arr_c, align=PP_ALIGN.CENTER)
+
+            # Title
             _txb(slide, ch.get("title", ""),
-                 l=cx + Mm(5.6), t=cy + Mm(27.5), w=CARD_W - Mm(10), h=Mm(9),
+                 l=cx + Mm(5.6), t=cy + Mm(27.5), w=CARD_W - Mm(10), h=Mm(7.8),
                  sz=15, bold=True, color=ttl_c)
 
-            _rect(slide, l=cx + Mm(5.6), t=cy + Mm(37.5), w=Mm(20), h=Mm(0.5),
+            # Thin accent line
+            _rect(slide, l=cx + Mm(5.6), t=cy + Mm(37), w=Mm(5.6), h=Mm(0.5),
                   fill=line_c)
 
+            # Subtitle
             sub = ch.get("subtitle", "")
             if sub:
                 _txb(slide, sub,
-                     l=cx + Mm(5.6), t=cy + Mm(40), w=CARD_W - Mm(10), h=Mm(12),
+                     l=cx + Mm(5.6), t=cy + Mm(40.7), w=CARD_W - Mm(10), h=Mm(10),
                      sz=8, color=sub_c, wrap=True)
 
         return slide
@@ -1749,7 +1904,8 @@ class BrandPptx:
                         body_text: str,
                         label: str = "",
                         callout_items: Optional[List[Dict[str, str]]] = None,
-                        right_panel: Optional[Dict[str, Any]] = None):
+                        right_panel: Optional[Dict[str, Any]] = None,
+                        title_deco=None):
         """
         Left text + right dark panel layout (company intro / team page).
 
@@ -1762,7 +1918,7 @@ class BrandPptx:
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, label=label)
+        _header(slide, title, label=label, title_deco=title_deco)
         _footer(slide)
 
         LEFT_W = Mm(138)
@@ -1877,7 +2033,8 @@ class BrandPptx:
                         title: str,
                         modules: List[Dict],
                         subtitle: str = "",
-                        label: str = ""):
+                        label: str = "",
+                        title_deco=None):
         """
         4-per-row feature module grid, up to 8 modules.
 
@@ -1902,7 +2059,7 @@ class BrandPptx:
 
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
-        _header(slide, title, subtitle=subtitle, label=label)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
         COLS    = 4
@@ -2195,6 +2352,26 @@ class BrandPptx:
         _rect(slide, l=0, t=SLIDE_H - Mm(3.5), w=SLIDE_W, h=Mm(3.5),
               fill=BT.PRIMARY_500_HEX)
         return slide
+
+    # ── Decorative Arrow Helper ───────────────────────────────────────────────
+
+    def add_deco_arrow(self, slide, arrow_type: str,
+                       l_mm: float, t_mm: float,
+                       w_mm: float = 55.0,
+                       series: str = "a"):
+        """Place an arrow decoration linking text and image areas.
+
+        arrow_type: "arrow1" — upward-right, for TOP-aligned text+image layouts
+                    "arrow2" — downward-right, for BOTTOM-aligned text+image layouts
+        l_mm, t_mm: top-left corner of the arrow (mm from slide top-left)
+        w_mm:       desired width; height auto-calculated from image ratio
+        series:     "a" (white bg) | "b" (gray/image bg) | "c" (dark bg)
+
+        Typical usage:
+            slide = prs.add_text_image_right(...)
+            prs.add_deco_arrow(slide, "arrow1", l_mm=130, t_mm=70, w_mm=50)
+        """
+        return _deco_img(slide, arrow_type, l_mm, t_mm, w_mm, series=series)
 
     # ── Save ─────────────────────────────────────────────────────────────────
 

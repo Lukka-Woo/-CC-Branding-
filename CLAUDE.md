@@ -229,6 +229,73 @@ prs.save(os.path.join(_DOCS, "output.pptx"))
 ```
 - 比例：16:9 | 封面背景：`#0E1216` | 分隔页：`#3EC99E`
 
+#### PPTX 装饰性元素（Decorations）
+
+装饰图片统一存放于 `assets/装饰性元素/`，分三个系列：
+
+| 系列 | 使用场景 | 颜色 |
+|---|---|---|
+| **A 系**（`A*.png`） | 白色背景的普通内容页（最常用） | Primary `#3EC99E` |
+| **B 系**（`B*.png`） | 灰色底或整页图片的页面 | Success `#5CC13C` |
+| **C 系**（`C*.png`） | 深色背景页（如封面风格内容页） | Secondary `#C8E13C` |
+
+每个系列有四种装饰类型：
+
+| 类型 | 文件名规律 | 用途 |
+|---|---|---|
+| `underline` | `{系列}下划*.png` | 通用：任何页面标题关键词强调 |
+| `circle` | `{系列}画圈*.png` | 突出**核心答案词**（陈述句）或圈出问句答案（设问句） |
+| `arrow1` | `{系列}箭头1*.png` | 文字 + 图片**顶部对齐**时，从文字指向图片 |
+| `arrow2` | `{系列}箭头2*.png` | 文字 + 图片**底部对齐**时，从文字指向图片 |
+
+**使用规则（硬性约束）：**
+
+1. **每页最多一个装饰**，禁止同一页出现两种及以上装饰（页面会显得花哨）
+2. 有图文排版（`text_image` / `image_left_text` 类布局）的页面，优先考虑 arrow1 / arrow2
+3. 无箭头的内容页（含图文但不符合对齐条件、纯文字页），**必须**有 underline 或 circle
+4. 封面（`add_cover`）、章节分隔页（`add_divider*`）、TOC、结尾页（`add_closing`）**不加装饰**
+5. circle 须置于标题文字**下层**（z-order behind），底部与标题文字基线对齐
+
+**最小宽度规则：** 装饰视觉宽度始终保持约 **4 个字宽**（避免看起来太小太轻）。
+即使目标词只有 2 字（如"八大"、"承诺"），也按 4 字宽渲染，并以目标词为中心居中。
+
+**`title_deco` 参数说明**（所有 `add_*` 方法均支持）：
+
+```python
+title_deco = {
+    "type":       "underline",  # "underline" | "circle" | "arrow1" | "arrow2"
+    "char_start": 7,            # 目标词在标题中的起始字符偏移（从 0 开始，按视觉字宽估算）
+    "char_count": 4,            # 目标词的字符数（不足 4 时系统自动扩展到 4 字宽）
+    "char_w_mm":  8.1,          # 可选，覆盖默认字宽（默认 8.1mm，26pt bold CJK）
+    "series":     "a",          # 可选，默认 "a"；深色页用 "c"，图片背景页用 "b"
+}
+```
+
+**circle 字符宽度估算（26pt bold）：**
+- 全宽 CJK 字符：≈ 8.1 mm/字
+- 半宽数字/字母（如"8"）：≈ 4.0 mm/字
+- 间隔符" · "：≈ 2 字宽（约 16 mm）
+
+**典型用法示例：**
+
+```python
+# 下划线：强调末尾4字（最常见）
+prs.add_three_cards(title="工厂培训管理的三大困局", ...,
+    title_deco={"type": "underline", "char_start": 7, "char_count": 4})  # 三大困局
+
+# 画圈：陈述句突出核心答案（全员覆盖）
+prs.add_body_slide(title="我们的建议：方案 B 全员覆盖", ...,
+    title_deco={"type": "circle", "char_start": 11, "char_count": 4})   # 全员覆盖
+
+# 画圈：设问句答案（8周，半宽"8"约0.5字宽）
+prs.add_timeline(title="8 周标准交付，无需 IT 团队介入", ...,
+    title_deco={"type": "circle", "char_start": 0, "char_count": 2})    # 8 周
+
+# " · " 分隔符处理（约占2字宽偏移）
+prs.add_table_slide(title="两种方案 · 清晰对比", ...,
+    title_deco={"type": "underline", "char_start": 6, "char_count": 4}) # 清晰对比
+```
+
 ### HTML
 
 输出文件在 `projects/{name}/docs/` 时，路径为：
