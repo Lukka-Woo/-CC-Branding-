@@ -667,6 +667,190 @@ def _seq_badge(slide, x, y, seq: int, color: str, size_mm: float = 9):
          align=PP_ALIGN.CENTER, wrap=False)
 
 
+# ── Pill design system ────────────────────────────────────────────────────────
+
+# Named style presets: (bg_hex, fg_hex)
+# Use as: bg, fg = _PILL_STYLES["primary"]
+_PILL_STYLES: dict = {
+    # Filled / bold (bg = brand color, text = white or dark)
+    "primary":        (BT.PRIMARY_500_HEX,    BT.WHITE_HEX),
+    "secondary":      (BT.SECONDARY_500_HEX,  BT.NEUTRAL_900_HEX),
+    "success":        (BT.SUCCESS_HEX,         BT.WHITE_HEX),
+    "warning":        (BT.WARNING_HEX,         BT.NEUTRAL_900_HEX),
+    "teal":           (BT.TEAL_HEX,            BT.WHITE_HEX),
+    "purple":         (BT.PURPLE_HEX,          BT.WHITE_HEX),
+    "danger":         (BT.DANGER_HEX,          BT.WHITE_HEX),
+    "dark":           (BT.NEUTRAL_900_HEX,     BT.WHITE_HEX),
+    # Soft / light (bg = *_100 tint, text = accent)
+    "primary-soft":   (BT.PRIMARY_100_HEX,     BT.PRIMARY_500_HEX),
+    "secondary-soft": (BT.SECONDARY_100_HEX,   BT.SECONDARY_500_HEX),
+    "neutral":        (BT.NEUTRAL_100_HEX,     BT.NEUTRAL_700_HEX),
+    "neutral-dark":   (BT.NEUTRAL_200_HEX,     BT.NEUTRAL_700_HEX),
+}
+
+# Colors that need dark text for readability (light/warm backgrounds)
+_LIGHT_PILL_BGS = frozenset({
+    BT.SECONDARY_500_HEX,  # #C8E13C yellow-green
+    BT.WARNING_HEX,        # #FFB928 orange-yellow
+})
+
+
+def _pill_fg(bg: str) -> str:
+    """Return white or dark foreground text based on bg luminance."""
+    return BT.NEUTRAL_900_HEX if bg in _LIGHT_PILL_BGS else BT.WHITE_HEX
+
+
+def _pill(slide, text: str, l: int, t: int,
+          bg: str = None, fg: str = None,
+          font_sz: int = 8, bold: bool = True,
+          h: int = None, max_w: int = None) -> int:
+    """
+    Render a single labeled pill at (l, t).
+    Returns pill width in EMU.  Use for layout chaining:
+        next_x = l + _pill(slide, text, l, t, ...) + Mm(gap)
+
+    bg / fg: hex strings; omit to get PRIMARY filled style.
+    h:       pill height in EMU; default Mm(7).
+    max_w:   cap pill width (prevents overflow in constrained slots).
+    """
+    if bg is None:
+        bg = BT.PRIMARY_500_HEX
+    if fg is None:
+        fg = _pill_fg(bg)
+    if h is None:
+        h = Mm(7)
+    PAD_X = Mm(3.5)
+    CJK_W = Mm(font_sz * 0.44)     # 8pt ≈ 3.5mm/CJK char; 11pt ≈ 4.8mm
+    pw    = int(len(text) * CJK_W + 2 * PAD_X)
+    if max_w and pw > max_w:
+        pw = max_w
+    _rect(slide, l=l, t=t, w=pw, h=h,
+          fill=bg, radius_mm=BT.RADIUS_PILL_MM)
+    _txb(slide, text, l=l + PAD_X, t=t + Mm(0.5),
+         w=pw - 2 * PAD_X, h=h - Mm(1),
+         sz=font_sz, bold=bold, color=fg,
+         align=PP_ALIGN.CENTER, wrap=False)
+    return pw
+
+
+# ── Callout / Note blocks ─────────────────────────────────────────────────────
+
+# Presentational gradient stop colors for callout backgrounds.
+# Computed as 12% tint of brand color on white — deliberately NOT exported as
+# brand tokens (too contextual, too light for general use).
+#   Primary  #3EC99E × 12% + white × 88% → #E8F9F3
+#   Secondary #C8E13C × 12% + white × 88% → #F8FBE8
+_CGRAD_L = "#E8F9F3"
+_CGRAD_R = "#F8FBE8"
+
+_CALLOUT_STYLES: dict = {
+    # (bg_hex_or_None, pill_style, default_label, grad_stops_or_None)
+    # note/info/tip: horizontal gradient, stops at 0% and 100%
+    # warning/danger: solid semantic bg, no gradient
+    "note":    (None,              "primary", "注",   [(0, _CGRAD_L), (100, _CGRAD_R)]),
+    "info":    (None,              "primary", "说明", [(0, _CGRAD_L), (100, _CGRAD_R)]),
+    "tip":     (None,              "primary", "提示", [(0, _CGRAD_R), (100, _CGRAD_L)]),
+    "warning": (BT.CARD_ORANGE_BG, "warning", "注意", None),
+    "danger":  (BT.CARD_DANGER_BG, "danger",  "警告", None),
+}
+
+CALLOUT_H = Mm(12)   # standard callout block height
+
+
+def _callout(slide, text: str, l: int, t: int, w: int,
+             label: str = None, style: str = "note",
+             font_sz: int = 10) -> int:
+    """
+    Render a callout / annotation block at (l, t, w).
+    Returns height in EMU for layout chaining.
+
+    label:  pill text — None uses the style default ("注"/"说明" etc.); "" suppresses pill
+    style:  "note" | "info" | "tip" | "warning" | "danger"
+    """
+    bg_hex, pill_style, default_label, grad_stops = _CALLOUT_STYLES.get(
+        style, _CALLOUT_STYLES["note"])
+    PAD   = Mm(5)
+
+    shape = _rect(slide, l=l, t=t, w=w, h=CALLOUT_H,
+                  fill=bg_hex or _CGRAD_L, radius_mm=BT.RADIUS_SM_MM)
+    if grad_stops:
+        _apply_shape_gradient(shape, grad_stops, angle_deg=0)
+
+    pill_label = default_label if label is None else label
+    text_x     = l + PAD
+    if pill_label:
+        _ps    = _PILL_STYLES.get(pill_style, _PILL_STYLES["neutral"])
+        pw     = _pill(slide, pill_label, l=l + PAD, t=t + Mm(2.5),
+                       bg=_ps[0], fg=_ps[1], font_sz=8)
+        text_x = l + PAD + pw + Mm(3)
+
+    _txb(slide, text,
+         l=text_x, t=t + Mm(2),
+         w=w - (text_x - l) - PAD, h=CALLOUT_H - Mm(4),
+         sz=font_sz, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+
+    return CALLOUT_H
+
+
+def _flow_pills(slide, items: list, x0: int, y0: int, max_w: int,
+                pill_h: int = None, font_sz: int = 9,
+                pill_bg: str = None, pill_fg: str = None,
+                arr_c: str = None) -> int:
+    """
+    Render items as pill→arrow→pill inline flow.
+    Auto-wraps to a new line when items exceed max_w.
+    Returns the bottom y-coordinate of the last rendered row.
+    """
+    if not items:
+        return y0
+    if pill_h is None:
+        pill_h = Mm(8)
+    if pill_bg is None:
+        pill_bg = BT.PRIMARY_100_HEX
+    if pill_fg is None:
+        pill_fg = BT.PRIMARY_500_HEX
+    if arr_c is None:
+        arr_c = BT.NEUTRAL_400_HEX
+
+    ARR_W   = Mm(7)
+    ROW_GAP = Mm(3)
+
+    def _pw(text: str) -> int:
+        return int(len(text) * Mm(font_sz * 0.44) + 2 * Mm(3.5))
+
+    # build wrapped rows
+    rows: list = []
+    cur_row: list = []
+    cur_w = 0
+    for item in items:
+        pw    = _pw(item)
+        arrow = ARR_W if cur_row else 0
+        if cur_row and cur_w + arrow + pw > max_w:
+            rows.append(cur_row)
+            cur_row = [item]
+            cur_w   = pw
+        else:
+            cur_row.append(item)
+            cur_w += arrow + pw
+    if cur_row:
+        rows.append(cur_row)
+
+    cur_y = y0
+    for row in rows:
+        cur_x = x0
+        for j, item in enumerate(row):
+            if j > 0:
+                _txb(slide, "→", l=cur_x, t=cur_y, w=ARR_W, h=pill_h,
+                     sz=font_sz - 1, color=arr_c, align=PP_ALIGN.CENTER,
+                     bold=False, wrap=False)
+                cur_x += ARR_W
+            cur_x += _pill(slide, item, l=cur_x, t=cur_y,
+                           bg=pill_bg, fg=pill_fg, font_sz=font_sz, h=pill_h)
+        cur_y += pill_h + ROW_GAP
+
+    return cur_y - ROW_GAP
+
+
 # ── BrandPptx ─────────────────────────────────────────────────────────────────
 
 class BrandPptx:
@@ -821,42 +1005,82 @@ class BrandPptx:
 
     def add_body_slide(self,
                        title: str,
-                       bullets: Optional[List[str]] = None,
+                       bullets: Optional[List] = None,
                        body_text: str = "",
                        subtitle: str = "",
                        label: str = "",
                        slide_label: str = "",
-                       title_deco=None):
-        """Standard white body slide with header, bullets or free text."""
+                       title_deco=None,
+                       note: str = "",
+                       note_style: str = "note"):
+        """Standard white body slide with header, bullets or free text.
+
+        note / note_style: optional callout block at the bottom of the slide.
+        note_style: "note" | "info" | "tip" | "warning" | "danger"
+        """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
         _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide, layout_label=slide_label)
 
-        content_top = CONTENT_Y + Mm(4)
-        content_h   = CONTENT_H - Mm(4)
+        _note_reserve = CALLOUT_H + Mm(6) if note else 0
+        content_top   = CONTENT_Y + Mm(4)
+        content_h     = CONTENT_H - Mm(4) - _note_reserve
 
         if bullets:
-            tb = slide.shapes.add_textbox(
-                ML, content_top, CW, content_h)
-            tf = tb.text_frame
-            tf.word_wrap = True
-            for i, bullet in enumerate(bullets):
-                p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-                pPr = p._p.get_or_add_pPr()
-                lnSpc = etree.SubElement(pPr, qn("a:lnSpc"))
-                etree.SubElement(lnSpc, qn("a:spcPts"), attrib={"val": "2100"})
-                spc_bef = etree.SubElement(pPr, qn("a:spcBef"))
-                etree.SubElement(spc_bef, qn("a:spcPts"), attrib={"val": "800"})
-                run = p.add_run()
-                run.text = f"• {bullet}"
-                run.font.size = Pt(17)
-                run.font.color.rgb = _rgb(BT.NEUTRAL_700_HEX)
-                _set_run_fonts(run)
+            _has_pills = any(isinstance(b, dict) and b.get("pill") for b in bullets)
+            if not _has_pills:
+                # Fast path: single textbox for uniform bullet list
+                tb = slide.shapes.add_textbox(ML, content_top, CW, content_h)
+                tf = tb.text_frame
+                tf.word_wrap = True
+                for i, bullet in enumerate(bullets):
+                    text = bullet if isinstance(bullet, str) else bullet.get("text", "")
+                    p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+                    pPr = p._p.get_or_add_pPr()
+                    lnSpc = etree.SubElement(pPr, qn("a:lnSpc"))
+                    etree.SubElement(lnSpc, qn("a:spcPts"), attrib={"val": "2100"})
+                    spc_bef = etree.SubElement(pPr, qn("a:spcBef"))
+                    etree.SubElement(spc_bef, qn("a:spcPts"), attrib={"val": "800"})
+                    run = p.add_run()
+                    run.text = f"• {text}"
+                    run.font.size = Pt(17)
+                    run.font.color.rgb = _rgb(BT.NEUTRAL_700_HEX)
+                    _set_run_fonts(run)
+            else:
+                # Per-element rendering — supports pill prefix for info hierarchy
+                # Bullet dict format: {"pill": "标签", "text": "内容...", "style": "primary-soft"}
+                BULLET_H = Mm(9)
+                ROW_GAP  = Mm(2.5)
+                cur_y    = content_top
+                for b in bullets:
+                    if isinstance(b, str):
+                        _txb(slide, f"• {b}", l=ML, t=cur_y, w=CW, h=BULLET_H,
+                             sz=15, color=BT.NEUTRAL_700_HEX)
+                    else:
+                        pill_text = b.get("pill", "")
+                        body_text = b.get("text", "")
+                        style     = b.get("style", "primary-soft")
+                        _ps       = _PILL_STYLES.get(style, _PILL_STYLES["primary-soft"])
+                        text_x    = ML
+                        if pill_text:
+                            pw     = _pill(slide, pill_text, l=ML, t=cur_y + Mm(1),
+                                          bg=_ps[0], fg=_ps[1], font_sz=9)
+                            text_x = ML + pw + Mm(3)
+                        if body_text:
+                            _txb(slide, body_text, l=text_x, t=cur_y,
+                                 w=CW - (text_x - ML), h=BULLET_H,
+                                 sz=14, color=BT.NEUTRAL_700_HEX, ls_pt=20)
+                    cur_y += BULLET_H + ROW_GAP
         elif body_text:
             _txb(slide, body_text,
                  l=ML, t=content_top, w=CW, h=content_h,
                  sz=16, color=BT.NEUTRAL_700_HEX, ls_pt=26)
+
+        if note:
+            _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=_note_t, w=CW, style=note_style)
+
         return slide
 
     # ── Two-Column Slide ──────────────────────────────────────────────────────
@@ -869,7 +1093,9 @@ class BrandPptx:
                           right_title: str = "",
                           subtitle: str = "",
                           label: str = "",
-                          title_deco=None):
+                          title_deco=None,
+                          note: str = "",
+                          note_style: str = "note"):
         """Two-column body slide with optional column subtitles."""
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
@@ -885,14 +1111,15 @@ class BrandPptx:
         ]):
             left_x = ML + i * (C2_W + C2_GAP)
             if col_title:
-                _txb(slide, col_title,
-                     l=left_x, t=top, w=C2_W, h=Mm(12),
-                     sz=13, bold=True, color=BT.PRIMARY_500_HEX)
-                body_top = top + Mm(14)
+                # Tab-style pill: left=primary, right=secondary
+                _cb = BT.PRIMARY_500_HEX if i == 0 else BT.SECONDARY_500_HEX
+                _pill(slide, col_title, l=left_x, t=top,
+                      bg=_cb, fg=_pill_fg(_cb), font_sz=11, h=Mm(9))
+                body_top = top + Mm(13)
             else:
                 body_top = top
             _txb(slide, content,
-                 l=left_x, t=body_top, w=C2_W, h=height - Mm(14),
+                 l=left_x, t=body_top, w=C2_W, h=height - Mm(13),
                  sz=14, color=BT.NEUTRAL_700_HEX, ls_pt=22)
 
         # Vertical divider
@@ -902,6 +1129,11 @@ class BrandPptx:
               w=Mm(0.4),
               h=height - Mm(8),
               fill=BT.NEUTRAL_200_HEX)
+
+        if note:
+            _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=_note_t, w=CW, style=note_style)
+
         return slide
 
     # ── Two-Column Pill Tags ──────────────────────────────────────────────────
@@ -922,24 +1154,24 @@ class BrandPptx:
         """
         Two-column callout layout with pill/badge tags.
 
-        Each column is a card with a left vertical accent strip, a title, and
-        auto-wrapping pill tags. Optionally a description text at the bottom.
+        Each column is a callout-style bordered card (no left strip).
+        Card identity comes from the colored border + background, matching the
+        callout design in add_about_slide.
 
         left_pills / right_pills : list[str] — each item rendered as a pill badge
         left_desc / right_desc   : str       — optional footer text (11pt NEUTRAL_400)
 
-        Left column uses PRIMARY palette (green pills).
-        Right column uses SECONDARY palette (yellow-green pills).
+        Left column uses PRIMARY palette (green pills + green border).
+        Right column uses SECONDARY palette (yellow-green pills + secondary border).
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
         _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
-        STRIP_W    = Mm(3.5)   # vertical accent strip width
-        PAD_LEFT   = Mm(8)     # content left edge (past strip)
-        PAD_X      = Mm(4)     # right inner padding
-        PAD_TOP    = Mm(4)     # top inner padding
+        PAD_LEFT   = Mm(5)     # inner left padding (no strip, so tighter)
+        PAD_X      = Mm(5)     # right inner padding
+        PAD_TOP    = Mm(5)     # top inner padding
         PAD_BOT    = Mm(4)     # bottom inner padding
         TITLE_H    = Mm(12)    # column title box height
         PILL_H     = Mm(8.5)   # pill height
@@ -965,11 +1197,9 @@ class BrandPptx:
             cx         = ML + col_idx * (C2_W + C2_GAP)
             content_w  = C2_W - PAD_LEFT - PAD_X   # usable pill-flow width
 
-            # Card background
-            _card(slide, l=cx, t=cy, w=C2_W, h=card_h, bg=card_bg)
-
-            # Left accent strip (flat rect overlaid on card)
-            _rect(slide, l=cx, t=cy, w=STRIP_W, h=card_h, fill=accent, radius_mm=0)
+            # Colored card — no border (only white-bg cards get a gray border)
+            _card(slide, l=cx, t=cy, w=C2_W, h=card_h,
+                  bg=card_bg)
 
             # Column title (accent color, 13pt bold)
             _txb(slide, col_title,
@@ -1055,12 +1285,12 @@ class BrandPptx:
             inner_w = C3_W - Mm(10)
             y_off   = card_top + Mm(6)
 
-            # Optional tag / eyebrow
             tag = c.get("tag", "")
             if tag:
-                _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(7),
-                     sz=9, bold=True, color=tag_color)
-                y_off += Mm(8)
+                _tc = BT.DANGER_HEX if is_danger else tag_color
+                _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(6),
+                     sz=9, bold=True, color=_tc)
+                y_off += Mm(7)
 
             # Card title
             _txb(slide, c.get("title", ""),
@@ -1091,13 +1321,14 @@ class BrandPptx:
                       label: str = "",
                       title_deco=None,
                       intro_text: str = "",
-                      intro_label: str = ""):
+                      intro_label: str = "",
+                      intro_flow: list = None):
         """
         2-row × 3-column compact cards grid.
         cards: [{"title": "...", "body": "...", "tag": "(optional)"}] — up to 6
         Column index drives accent colour so each column pair shares a theme.
 
-        intro_text / intro_label: when exactly 5 cards are given, the top-left slot
+        intro_text / intro_label / intro_flow: when exactly 5 cards are given, the top-left slot
         becomes a summary text block instead of a card → balanced 2+3 layout:
           Row 0: [intro_text_slot]  [card0]  [card1]
           Row 1: [card2]  [card3]  [card4]
@@ -1147,26 +1378,30 @@ class BrandPptx:
         # a summary text block. Cards fill slots 1-5:
         #   Row 0: [intro_slot]  [card0]  [card1]
         #   Row 1: [card2]  [card3]  [card4]    → 2+3 balanced vs awkward bare 3+2
-        _use_intro   = intro_text and len(_cards_adj) == 5
+        _use_intro   = (bool(intro_text) or bool(intro_flow)) and len(_cards_adj) == 5
         _slot_offset = 1 if _use_intro else 0
 
         if _use_intro:
-            ts_x = ML
-            ts_y = CONTENT_Y + PAD_TOP
-            _card(slide, l=ts_x, t=ts_y, w=C3_W, h=card_h, bg=BT.PRIMARY_100_HEX)
-            _rect(slide, l=ts_x, t=ts_y, w=Mm(3), h=card_h,
-                  fill=BT.PRIMARY_500_HEX, radius_mm=0)
-            _il = ts_x + Mm(7)
-            _iw = C3_W - Mm(11)
+            ts_x  = ML
+            ts_y  = CONTENT_Y + PAD_TOP
+            _pad  = Mm(5)
+            _iw   = C3_W - 2 * _pad
+            cur_y = ts_y + _pad
             if intro_label:
-                _txb(slide, intro_label, l=_il, t=ts_y + Mm(5), w=_iw, h=Mm(6),
+                _txb(slide, intro_label, l=ts_x + _pad, t=cur_y,
+                     w=_iw, h=Mm(6),
                      sz=8, bold=True, color=BT.PRIMARY_500_HEX)
-            # Position text in the lower ~62% of the slot for visual bottom-anchor
-            _txt_top = ts_y + int(card_h * 0.38)
-            _txb(slide, intro_text,
-                 l=_il, t=_txt_top,
-                 w=_iw, h=card_h - (_txt_top - ts_y) - Mm(8),
-                 sz=12, color=BT.NEUTRAL_700_HEX, ls_pt=18)
+                cur_y += Mm(8)
+            if intro_text:
+                _txb(slide, intro_text,
+                     l=ts_x + _pad, t=cur_y,
+                     w=_iw, h=Mm(20),
+                     sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=17)
+                cur_y += Mm(22)
+            if intro_flow:
+                _flow_pills(slide, intro_flow,
+                            x0=ts_x + _pad, y0=cur_y, max_w=_iw,
+                            font_sz=9)
 
         for i, c in enumerate(_cards_adj):
             slot      = i + _slot_offset
@@ -1197,9 +1432,15 @@ class BrandPptx:
 
             tag = c.get("tag", "")
             if tag:
-                _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(7),
-                     sz=8, bold=True, color=acc)
-                y_off += Mm(8)
+                if is_dark:
+                    _tc = BT.SECONDARY_500_HEX
+                elif is_danger:
+                    _tc = BT.DANGER_HEX
+                else:
+                    _tc = acc
+                _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(6),
+                     sz=8, bold=True, color=_tc)
+                y_off += Mm(7)
 
             _txb(slide, c.get("title", ""),
                  l=inner_l, t=y_off, w=inner_w, h=Mm(16),
@@ -1227,7 +1468,9 @@ class BrandPptx:
                       subtitle: str = "",
                       label: str = "",
                       colorful=None,
-                      title_deco=None):
+                      title_deco=None,
+                      note: str = "",
+                      note_style: str = "note"):
         """
         Stats card grid.
         colorful=None (auto): ≤4 items → 2-col colorful; 5+ items → 2-row neutral
@@ -1451,6 +1694,10 @@ class BrandPptx:
             _render_neutral_row(stats[:top_n], 0,     top_y, top_n, top_ch)
             _render_neutral_row(stats[top_n:], top_n, bot_y, bot_n, bot_ch)
 
+        if note:
+            _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=_note_t, w=CW, style=note_style)
+
         return slide
 
     # ── Timeline Slide ────────────────────────────────────────────────────────
@@ -1460,7 +1707,9 @@ class BrandPptx:
                      milestones: List[Tuple[str, str, str]],
                      subtitle: str = "",
                      label: str = "",
-                     title_deco=None):
+                     title_deco=None,
+                     note: str = "",
+                     note_style: str = "note"):
         """
         Adaptive timeline — no hard cap on item count.
         - 1–6  items → single horizontal row (full content height)
@@ -1500,6 +1749,10 @@ class BrandPptx:
                                     row1_top, row_h, extend_right=True)
             self._draw_timeline_row(slide, milestones[n1:],
                                     row2_top, row_h, extend_left=True)
+
+        if note:
+            _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=_note_t, w=CW, style=note_style)
 
         return slide
 
@@ -1693,7 +1946,7 @@ class BrandPptx:
             return slide
 
         t_top  = int(CONTENT_Y + Mm(5))
-        t_h    = int(CONTENT_H - Mm(8) - (Mm(8) if note else 0))
+        t_h    = int(CONTENT_H - Mm(8) - (CALLOUT_H + Mm(5) if note else 0))
         row_h  = min(int(t_h // (n_rows + 1)), int(Mm(12)))
 
         table  = slide.shapes.add_table(
@@ -1733,12 +1986,11 @@ class BrandPptx:
                 _set_run_fonts(run)
                 p.alignment = PP_ALIGN.LEFT
 
-        # Note
+        # Note — callout block below table
         if note:
-            _txb(slide, f"注：{note}",
-                 l=ML, t=t_top + row_h * (n_rows + 1) + Mm(3),
-                 w=CW, h=Mm(8),
-                 sz=10, color=BT.NEUTRAL_400_HEX)
+            _callout(slide, note,
+                     l=ML, t=t_top + row_h * (n_rows + 1) + Mm(4),
+                     w=CW, style="note")
 
         return slide
 
@@ -1862,13 +2114,15 @@ class BrandPptx:
                 arr_c   = BT.WHITE_HEX
                 line_c  = BT.PRIMARY_500_HEX
             elif state == "upcoming":
+                # Static PPT/PDF has no interactive state — use same green as "done"
+                # so all non-active chapters read with full visual weight.
                 card_bg = BT.BG_PAGE_HEX
-                num_c   = BT.NEUTRAL_400_HEX
+                num_c   = BT.PRIMARY_500_HEX
                 ttl_c   = BT.NEUTRAL_900_HEX
-                sub_c   = BT.NEUTRAL_400_HEX
-                arr_bg  = BT.NEUTRAL_100_HEX
-                arr_c   = BT.NEUTRAL_400_HEX
-                line_c  = BT.NEUTRAL_200_HEX
+                sub_c   = BT.NEUTRAL_700_HEX
+                arr_bg  = BT.PRIMARY_100_HEX
+                arr_c   = BT.PRIMARY_500_HEX
+                line_c  = BT.PRIMARY_500_HEX
             else:  # done
                 card_bg = BT.BG_PAGE_HEX
                 num_c   = BT.PRIMARY_500_HEX
@@ -2194,7 +2448,8 @@ class BrandPptx:
                         label: str = "",
                         title_deco=None,
                         intro_text: str = "",
-                        intro_label: str = ""):
+                        intro_label: str = "",
+                        intro_flow: list = None):
         """
         Feature module grid, up to 8 modules. Default: 4-per-row (2×4).
 
@@ -2254,7 +2509,7 @@ class BrandPptx:
         # 5 mods + intro_text → 3-col (row0: text+m0+m1,    row1: m2+m3+m4)   2+3
         # 7 mods + intro_text → 4-col (row0: text+m0+m1+m2, row1: m3+m4+m5+m6) 3+4
         # all other counts    → 4-col standard grid
-        _use_intro   = intro_text and (_n_mods in (5, 7))
+        _use_intro   = (bool(intro_text) or bool(intro_flow)) and (_n_mods in (5, 7))
         _slot_offset = 1 if _use_intro else 0
         if _use_intro and _n_mods == 5:
             COLS   = 3
@@ -2264,23 +2519,26 @@ class BrandPptx:
             CELL_W = Mm(74.1)
 
         if _use_intro:
-            ts_x = ML
-            ts_y = GRID_Y
-            _card(slide, l=ts_x, t=ts_y, w=CELL_W, h=CELL_H,
-                  bg=BT.PRIMARY_100_HEX, border=None, radius_mm=BT.RADIUS_SM_MM)
-            _rect(slide, l=ts_x, t=ts_y, w=Mm(2.5), h=CELL_H,
-                  fill=BT.PRIMARY_500_HEX, radius_mm=0)
-            _il = ts_x + Mm(6.5)
-            _iw = CELL_W - Mm(10)
+            ts_x  = ML
+            ts_y  = GRID_Y
+            _pad  = Mm(5)
+            _iw   = CELL_W - 2 * _pad
+            cur_y = ts_y + _pad
             if intro_label:
-                _txb(slide, intro_label, l=_il, t=ts_y + Mm(4), w=_iw, h=Mm(5),
+                _txb(slide, intro_label, l=ts_x + _pad, t=cur_y,
+                     w=_iw, h=Mm(5),
                      sz=7, bold=True, color=BT.PRIMARY_500_HEX)
-            # Text in lower ~62% of slot — visual bottom-anchor feel
-            _txt_top = ts_y + int(CELL_H * 0.38)
-            _txb(slide, intro_text,
-                 l=_il, t=_txt_top,
-                 w=_iw, h=CELL_H - (_txt_top - ts_y) - Mm(6),
-                 sz=10, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+                cur_y += Mm(7)
+            if intro_text:
+                _txb(slide, intro_text,
+                     l=ts_x + _pad, t=cur_y,
+                     w=_iw, h=Mm(18),
+                     sz=10, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+                cur_y += Mm(20)
+            if intro_flow:
+                _flow_pills(slide, intro_flow,
+                            x0=ts_x + _pad, y0=cur_y, max_w=_iw,
+                            font_sz=8)
 
         for i, mod in enumerate(_modules_adj):
             slot     = i + _slot_offset
@@ -2378,12 +2636,14 @@ class BrandPptx:
                  l=cx + Mm(4.9), t=cy + Mm(16.6), w=CELL_W - Mm(9), h=Mm(7),
                  sz=11, bold=True, color=ttl_c)
 
-            # EN subtitle
+            # EN subtitle — small colored label below module title
             en = mod.get("en", "")
             if en:
                 _txb(slide, en,
-                     l=cx + Mm(4.9), t=cy + Mm(24), w=CELL_W - Mm(9), h=Mm(4),
-                     sz=6, bold=True, color=accent)
+                     l=cx + Mm(4.9), t=cy + Mm(24),
+                     w=int(CELL_W - Mm(9.8)), h=Mm(5.5),
+                     sz=6, bold=True,
+                     color=BT.WHITE_HEX if featured else accent)
 
             # Bullet points
             bullets = mod.get("bullets", [])

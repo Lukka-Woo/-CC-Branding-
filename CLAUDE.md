@@ -301,6 +301,11 @@ prs.save(os.path.join(_DOCS, "output.pptx"))
 - 卡片数 ≥ 5：最多 **1 张**深色卡，在 `cards` dict 里加 `"dark": True`
 - 深色卡数量由 `brand_config.json` 的 `card_rules.max_dark_per_slide` 控制，**不硬编码**
 
+**卡片边框规则（hard rule）：**
+- 白色背景卡片（`WHITE_HEX`）：可加 `BORDER_DEFAULT_HEX` 灰色细边框，使其在白色页面上可见
+- **有颜色背景的卡片（包括所有 `*_100` 浅色系、深色卡、任何非白底）：禁止加边框**
+- 在 `_card()` 调用中：有色背景传 `border=None`（或省略），白底传 `border=BT.BORDER_DEFAULT_HEX`
+
 #### 各版式选型速查
 
 | 场景 | 推荐版式 | 关键参数 |
@@ -309,20 +314,21 @@ prs.save(os.path.join(_DOCS, "output.pptx"))
 | 浅色开场（报告风） | `add_cover_light` | title/subtitle/date_or_meta |
 | 章节过渡 | `add_divider_rich` | chapter_num/chapter_title/chapter_items/current_item |
 | 目录页 | `add_toc` | chapters 列表（num/title/subtitle/state） |
-| 文字要点/纯文字 | `add_body_slide` | bullets 列表 或 body_text 字符串 |
+| 文字要点/纯文字 | `add_body_slide` | bullets 列表（可含 dict `{"pill":"标签","text":"内容","style":"..."}` 实现区块导航）或 body_text 字符串 |
 | 两侧对比 | `add_two_col_slide` | left/right title + content，会自动加竖向分隔线 |
 | 两侧分类标签 | `add_two_col_pills` | left/right_title + pills(list[str]) + desc；左绿右黄绿，auto-wrap |
 | 3个并列特性 | `add_three_cards` | cards ≤3，无深色卡 |
 | 4或6个并列特性 | `add_six_cards` | cards 4或6项，最多1张深色卡 |
-| **5个并列特性** | `add_six_cards` + `intro_text` | cards=5，必须传 intro_text → 自动生成 text+2 / 3 均衡布局（见下方「均衡布局规则」） |
+| **5个并列特性** | `add_six_cards` + `intro_text`/`intro_flow` | cards=5，必须传 intro 参数 → 自动生成 text+2 / 3 均衡布局（见下方「均衡布局规则」） |
 | 核心指标 ≤4 | `add_big_stats` | stats 4项，colorful 自动=True（两列彩色） |
 | 核心指标 5-8 | `add_big_stats` | stats 5-8项，colorful 自动=False（中性白底） |
 | 功能模块矩阵 4/6/8项 | `add_module_grid` | modules 含 num/icon/title/en/bullets |
-| **功能模块矩阵 5项** | `add_module_grid` + `intro_text` | modules=5，必须传 intro_text → 自动切换 3列，text+2 / 3 布局（见下方「均衡布局规则」） |
-| **功能模块矩阵 7项** | `add_module_grid` + `intro_text` | modules=7，必须传 intro_text → 保持 4列，text+3 / 4 布局（见下方「均衡布局规则」） |
-| 时间轴 ≤5步 | `add_timeline` | 自动渲染为**水平**单行 |
-| 时间轴 6步+ | `add_timeline` | 自动渲染为**双行蛇形**（wrap 模式） |
-| 数据表格 | `add_table_slide` | headers/rows/note；Header 行绿底白字，斑马纹 |
+| **功能模块矩阵 5项** | `add_module_grid` + `intro_text`/`intro_flow` | modules=5，必须传 intro 参数 → 自动切换 3列，text+2 / 3 布局（见下方「均衡布局规则」） |
+| **功能模块矩阵 7项** | `add_module_grid` + `intro_text`/`intro_flow` | modules=7，必须传 intro 参数 → 保持 4列，text+3 / 4 布局（见下方「均衡布局规则」） |
+| 工作流 / 步骤 / 状态变化 | `intro_flow=["A","B","C"]` | 渲染为 pill→箭头→pill 流；与 intro_text 可并用（见下方「pill+箭头流模式」） |
+| 时间轴 ≤5步 | `add_timeline` | 自动渲染为**水平**单行；支持 `note=` |
+| 时间轴 6步+ | `add_timeline` | 自动渲染为**双行蛇形**（wrap 模式）；支持 `note=` |
+| 数据表格 | `add_table_slide` | headers/rows/note；Header 行绿底白字，斑马纹；note 渲染为 callout 块 |
 | 引用/佐证/数据背书 | `add_quote` | 深色背景，大引号，作者署名；**不加 title_deco** |
 | 公司介绍 | `add_about_slide` | body_text + callout_items + right_panel |
 | 结尾/Call to Action | `add_closing` | slogan_parts（多色分段）+ slogan_sub |
@@ -333,22 +339,199 @@ prs.save(os.path.join(_DOCS, "output.pptx"))
 
 | 数量 | 禁止做法 | 正确做法 |
 |---|---|---|
-| 5张卡片（`add_six_cards`） | 直接传 5 → 3+2，最后行少1格 | 传 `intro_text` → 系统自动 **text+2 / 3** 均衡布局 |
-| 5个模块（`add_module_grid`） | 直接传 5 → 4+1，最后行严重空缺 | 传 `intro_text` → 系统自动切换 3列，**text+2 / 3** |
-| 7个模块（`add_module_grid`） | 直接传 7 → 4+3，差1个 | 传 `intro_text` → 系统自动 **text+3 / 4** 均衡布局 |
-| 4/6张卡片 | — | 直接传，不需要 `intro_text` |
-| 4/6/8个模块 | — | 直接传，不需要 `intro_text` |
+| 5张卡片（`add_six_cards`） | 直接传 5 → 3+2，最后行少1格 | 传 `intro_text`/`intro_flow` → 系统自动 **text+2 / 3** 均衡布局 |
+| 5个模块（`add_module_grid`） | 直接传 5 → 4+1，最后行严重空缺 | 传 `intro_text`/`intro_flow` → 系统自动切换 3列，**text+2 / 3** |
+| 7个模块（`add_module_grid`） | 直接传 7 → 4+3，差1个 | 传 `intro_text`/`intro_flow` → 系统自动 **text+3 / 4** 均衡布局 |
+| 4/6张卡片 | — | 直接传，不需要 intro 参数 |
+| 4/6/8个模块 | — | 直接传，不需要 intro 参数 |
 
-**`intro_text` 内容指引：**
-- 写 2-4 句话，概括这一页的整体意义（为什么有这些卡片/模块）
-- 不要重复标题内容，要补充视角（比如：这些模块如何协作形成闭环、这些特性的共同出发点）
-- 可选：传 `intro_label` 作为小标题（8pt 绿色，最多 8 字），如 `"用户工作流总览"`、`"系统边界"`
+**intro slot 内容参数（可单独传，也可并用）：**
+- `intro_label`：小标题，8pt 绿色，最多 8 字（如 `"用户工作流总览"`、`"系统边界"`）
+- `intro_text`：2-3 句话，概括整页的意义或整体逻辑，不重复标题
+- `intro_flow`：字符串列表，渲染为 pill→箭头→pill 流，适合工作流/步骤/状态变化（见「pill+箭头流模式」）
 
-**`intro_text` 在页面中的视觉位置：**
+**intro slot 视觉规则（硬性约束）：**
+- 无底色填充、无边框、无左侧装饰矩形——直接在白色幻灯片背景上呈现文字/pill
 - 占据第一行第一列（top-left），与相邻卡片同高
-- 绿色左边框 + 浅绿底色（`PRIMARY_100`）
-- 文字锚定在 slot 下半段（约 38% 往下），给上方留呼吸空间
-- 视觉上与第一行所有卡片共享同一底边线（达到「底部对齐」效果）
+- 禁止在 intro slot 添加任何 `_rect` 装饰线条或 `_card` 背景
+
+---
+
+## Pill 设计系统（全局规范）
+
+### Pill 使用场景
+
+Pill 是一种短标签元素，适用于以下场景，**禁止用于长句正文**：
+
+| 场景 | 版式位置 | 说明 |
+|---|---|---|
+| **步骤 / 流程** | `intro_flow`、body_slide bullets | 有方向性顺序，用"→"连接；无顺序用卡片 |
+| **状态变迁** | body_slide bullets `"style": "warning"` / `"danger"` | 体现状态差异，颜色传达语义 |
+| **正文区块导航** | body_slide bullets `{"pill": "区块名", "text": "内容"}` | **最核心用法**：在连续段落里用 pill 标明小节名（如"第一层""基础信息区"），帮读者定位 |
+| **两列 tab 标题** | add_two_col_slide `left_title` / `right_title` | 自动渲染为 primary/secondary pill |
+| **工作流** | `intro_flow=["A","B","C"]` | pill→箭头→pill，自动换行 |
+
+**禁止用 pill 的场景（容易出错）：**
+
+| 禁止 | 原因 |
+|---|---|
+| `add_three_cards` / `add_six_cards` 的 `"tag"` 字段 | `tag` 是卡片眉题，已有卡片背景色区分，加 pill 是视觉噪声；渲染为小号加粗彩色文字 |
+| `add_module_grid` 的 `"en"` 字段 | `en` 是模块的英文副标签，已有 icon badge 定位，加 pill 多余；渲染为小号加粗彩色文字 |
+| 段落里标注"来源"/"日期"之类的属性说明 | 这类内容是正文的一部分，不是导航标签，用逗号隔开即可 |
+
+### Pill 样式速查（`_PILL_STYLES`）
+
+| 样式名 | 背景色 | 文字色 | 适用语义 |
+|---|---|---|---|
+| `primary` | PRIMARY_500 `#3EC99E` | 白色 | 主要/标准/确认 |
+| `secondary` | SECONDARY_500 `#C8E13C` | 深色 | 创新/机遇/次级 |
+| `success` | SUCCESS `#5CC13C` | 白色 | 成功/通过/安全 |
+| `warning` | WARNING `#FFB928` | 深色 | 注意/警告/待处理 |
+| `teal` | TEAL `#3CC5CF` | 白色 | 扩展/生态 |
+| `purple` | PURPLE `#8255E1` | 白色 | 战略/特殊 |
+| `danger` | DANGER `#F12D2D` | 白色 | 危险/严重错误 |
+| `dark` | NEUTRAL_900 `#0E1216` | 白色 | 强调/亮点 |
+| `primary-soft` | PRIMARY_100 `#EAFAF5` | PRIMARY_500 | 流程步骤（默认） |
+| `secondary-soft` | SECONDARY_100 `#F8FBE7` | SECONDARY_500 | 次级步骤 |
+| `neutral` | NEUTRAL_100 `#F2F3F5` | NEUTRAL_700 | 中性标签/分类 |
+| `neutral-dark` | NEUTRAL_200 `#D0D5DD` | NEUTRAL_700 | 更深中性 |
+
+### Pill API
+
+```python
+# 1. 单个 pill（直接调用 module-level helper）
+_pill(slide, "标签文字", l=x, t=y, bg=BT.PRIMARY_500_HEX, fg=BT.WHITE_HEX, font_sz=8)
+# 返回 pill 宽度（EMU），可用于布局链接：
+# next_x = l + _pill(...) + Mm(3)
+
+# 2. 有名样式（推荐用法）
+bg, fg = _PILL_STYLES["primary-soft"]
+_pill(slide, "状态A", l=x, t=y, bg=bg, fg=fg, font_sz=9)
+
+# 3. 带箭头流（intro_flow 参数）
+prs.add_module_grid(..., intro_flow=["步骤A", "步骤B", "步骤C"])
+
+# 4. body_slide 信息分层 bullets（{"pill": ..., "text": ..., "style": ...}）
+prs.add_body_slide(
+    title="...",
+    bullets=[
+        {"pill": "已完成", "text": "PDF/HTML 解析 + SHA-256 存证", "style": "success"},
+        {"pill": "进行中", "text": "AI 三层摘要调优，目标准确率 ≥90%", "style": "warning"},
+        {"pill": "计划中", "text": "条款结构化抽取 + 版本比对引擎", "style": "neutral"},
+        "普通文字 bullet（纯字符串，无 pill）",
+    ]
+)
+```
+
+### `_pill()` 参数参考
+
+| 参数 | 默认值 | 说明 |
+|---|---|---|
+| `text` | 必填 | 标签文字（建议 ≤6 字，最多 12 字） |
+| `l`, `t` | 必填 | 左上角坐标（EMU） |
+| `bg` | PRIMARY_500 | pill 背景色 hex |
+| `fg` | 自动 | 文字色（省略时自动选白/深，保证对比度） |
+| `font_sz` | `8` | 字号（pt），建议 7–11 pt |
+| `bold` | `True` | 是否加粗 |
+| `h` | `Mm(7)` | pill 高度 |
+| `max_w` | `None` | 最大宽度（防止溢出槽位） |
+
+### 自动行为说明
+
+| 元素 | 渲染方式 |
+|---|---|
+| 卡片 `"tag"` 字段（three_cards / six_cards） | 小号加粗彩色文字（eyebrow），**不是 pill** |
+| `add_two_col_slide` 左列标题 | PRIMARY_500 filled pill |
+| `add_two_col_slide` 右列标题 | SECONDARY_500 filled pill（自动深色文字） |
+| `add_module_grid` `"en"` 字段 | 小号加粗 accent 彩色文字，**不是 pill** |
+| `add_timeline` period 标签 | 彩色 filled pill（系统内置） |
+
+#### pill + 箭头流模式（`intro_flow` / `_flow_pills`）
+
+**使用场景：** 工作流步骤、状态变化、处理管线、用户旅程——任何有方向性顺序关系的列表。
+**禁止用于：** 无顺序关系的并列项（那应该用卡片或 bullet list）。
+
+**API：**
+```python
+# 在 add_six_cards / add_module_grid 的 intro slot 中使用：
+prs.add_module_grid(
+    ...,
+    intro_text="可选：1-2句整体说明",
+    intro_label="可选小标题",
+    intro_flow=["步骤A", "步骤B", "步骤C", "步骤D"],  # 渲染为 pill→pill→pill→pill
+)
+```
+
+**`_flow_pills` 参数（内部 helper，通过 `intro_flow` 触发）：**
+
+| 参数 | 默认值 | 说明 |
+|---|---|---|
+| `items` | 必填 | 步骤名称字符串列表 |
+| `pill_h` | `Mm(8)` | pill 高度 |
+| `font_sz` | `9` | 字号（pt） |
+| `pill_bg` | `PRIMARY_100` `#EAFAF5` | pill 背景色 |
+| `pill_fg` | `PRIMARY_500` `#3EC99E` | pill 文字色 |
+| `arr_c` | `NEUTRAL_400` `#8A9199` | 箭头颜色 |
+
+**布局行为：**
+- 每个 item 渲染为圆角 pill，item 间插入"→"文字
+- 自动换行：超出 `max_w` 时折到下一行（换行后不在行首加箭头）
+- 每个 pill 宽度随文字长度自适应（CJK ≈ 4.0mm/字 × font_sz/9）
+
+---
+
+## Callout / Note 块（全局规范）
+
+Callout 是页面底部的补充说明区块，带有底色 + pill 标签，比纯文字注解更醒目。
+
+### 使用场景
+
+| 场景 | 推荐 style | 背景色 | 胶囊颜色 |
+|---|---|---|---|
+| 通用注解、限制条件 | `"note"`（默认） | 横向渐变 `#E8F9F3` → `#F8FBE8`（12% 主绿→辅色） | primary 绿色 |
+| 功能说明、使用说明 | `"info"` | 横向渐变 `#E8F9F3` → `#F8FBE8` | primary 绿色 |
+| 操作建议、最佳实践 | `"tip"` | 横向渐变 `#F8FBE8` → `#E8F9F3`（方向相反） | primary 绿色 |
+| 需要注意的条件/例外 | `"warning"` | CARD_ORANGE_BG `#FFF1DF` 橙底（纯色） | warning 橙色（语义色） |
+| 数据风险、不可逆操作 | `"danger"` | CARD_DANGER_BG `#FFF2F2` 红底（纯色，慎用） | danger 红色（语义色，慎用） |
+
+**设计原则：** note/info/tip 使用品牌色 12% tint 与白色混合所得的极浅渐变（左 primary-tint → 右 secondary-tint），颜色计算在 pptx_builder.py 内联完成，不作为 brand token 导出。warning/danger 保留语义纯色，颜色更深以传递紧迫感。note/info/tip 统一用 primary 绿色胶囊；warning/danger 保留语义色。
+
+**典型使用位置：** 表格底部（告警规则说明）、时间轴（前提条件）、指标页（达标条件）、正文页（数据局限性）。
+
+### API
+
+```python
+# 所有支持 note= 的方法（add_body_slide / add_two_col_slide /
+# add_big_stats / add_timeline / add_table_slide）：
+prs.add_table_slide(
+    ...,
+    note="Phase 2 / Phase 3 启动条件：上一期验收通过后方可立项。",
+    note_style="warning",   # 省略时默认 "note"
+)
+
+prs.add_body_slide(
+    ...,
+    note="数据截止 2025-12，实际影响以官方最新版本为准。",
+    # note_style 省略 → 默认 "note"（中性灰）
+)
+```
+
+### `_callout()` 参数参考
+
+| 参数 | 默认值 | 说明 |
+|---|---|---|
+| `text` | 必填 | 注解文字（建议 ≤40 字，1行） |
+| `l`, `t`, `w` | 必填 | 位置和宽度（EMU） |
+| `label` | `None` | 覆盖默认 pill 标签文字 |
+| `style` | `"note"` | 预设样式（见上表） |
+| `font_sz` | `10` | 文字字号 |
+
+**视觉规则：**
+- Callout 固定高度 `CALLOUT_H = Mm(12)`，放置在内容区底部（距 footer 4mm）
+- 圆角矩形背景 + 左侧 pill 标签 + 正文文字水平排列
+- 不加边框、不加左侧装饰线
+
+---
 
 #### 正文排版数值
 
@@ -357,12 +540,12 @@ prs.save(os.path.join(_DOCS, "output.pptx"))
 | 大标题（header） | 26pt bold | NEUTRAL_900 | — |
 | 副标题（header subtitle） | 12pt | NEUTRAL_400 | — |
 | label（section tag） | 9pt | PRIMARY_500 | — |
-| 两列列标题 | 13pt bold | PRIMARY_500 | — |
+| 两列列标题（tab pill） | 11pt bold | pill 自动白/深 | pill h=9mm |
 | 两列正文 | 14pt | NEUTRAL_700 | 22pt |
 | 子弹点（body_slide） | 17pt | NEUTRAL_700 | 21pt + 8pt 段前 |
 | 正文段落（body_text） | 16pt | NEUTRAL_700 | 26pt |
 | 卡片标题 | 16pt bold | NEUTRAL_900 | — |
-| 卡片 tag（eyebrow） | 9pt bold | accent 色 | — |
+| 卡片 tag（eyebrow） | 8pt bold | pill bg=accent, fg=auto | pill h=7mm |
 | 卡片正文 | 13pt | NEUTRAL_700 | 18pt |
 | 统计数值（big_stats） | 44pt bold | accent 色 | — |
 | 统计标签 | 14pt bold | NEUTRAL_900 | — |
