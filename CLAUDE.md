@@ -311,17 +311,44 @@ prs.save(os.path.join(_DOCS, "output.pptx"))
 | 目录页 | `add_toc` | chapters 列表（num/title/subtitle/state） |
 | 文字要点/纯文字 | `add_body_slide` | bullets 列表 或 body_text 字符串 |
 | 两侧对比 | `add_two_col_slide` | left/right title + content，会自动加竖向分隔线 |
+| 两侧分类标签 | `add_two_col_pills` | left/right_title + pills(list[str]) + desc；左绿右黄绿，auto-wrap |
 | 3个并列特性 | `add_three_cards` | cards ≤3，无深色卡 |
-| 6个并列特性 | `add_six_cards` | cards ≤6，最多1张深色卡 |
+| 4或6个并列特性 | `add_six_cards` | cards 4或6项，最多1张深色卡 |
+| **5个并列特性** | `add_six_cards` + `intro_text` | cards=5，必须传 intro_text → 自动生成 text+2 / 3 均衡布局（见下方「均衡布局规则」） |
 | 核心指标 ≤4 | `add_big_stats` | stats 4项，colorful 自动=True（两列彩色） |
 | 核心指标 5-8 | `add_big_stats` | stats 5-8项，colorful 自动=False（中性白底） |
-| 功能模块矩阵 ≤8 | `add_module_grid` | modules 含 num/icon/title/en/bullets |
+| 功能模块矩阵 4/6/8项 | `add_module_grid` | modules 含 num/icon/title/en/bullets |
+| **功能模块矩阵 5项** | `add_module_grid` + `intro_text` | modules=5，必须传 intro_text → 自动切换 3列，text+2 / 3 布局（见下方「均衡布局规则」） |
+| **功能模块矩阵 7项** | `add_module_grid` + `intro_text` | modules=7，必须传 intro_text → 保持 4列，text+3 / 4 布局（见下方「均衡布局规则」） |
 | 时间轴 ≤5步 | `add_timeline` | 自动渲染为**水平**单行 |
 | 时间轴 6步+ | `add_timeline` | 自动渲染为**双行蛇形**（wrap 模式） |
 | 数据表格 | `add_table_slide` | headers/rows/note；Header 行绿底白字，斑马纹 |
 | 引用/佐证/数据背书 | `add_quote` | 深色背景，大引号，作者署名；**不加 title_deco** |
 | 公司介绍 | `add_about_slide` | body_text + callout_items + right_panel |
 | 结尾/Call to Action | `add_closing` | slogan_parts（多色分段）+ slogan_sub |
+
+#### 均衡布局规则（卡片/模块计数 → 布局选择）
+
+**硬性约束：任何卡片/模块布局，每一行的数量都必须接近均等，禁止出现孤立行（最后一行只有 1 个）。**
+
+| 数量 | 禁止做法 | 正确做法 |
+|---|---|---|
+| 5张卡片（`add_six_cards`） | 直接传 5 → 3+2，最后行少1格 | 传 `intro_text` → 系统自动 **text+2 / 3** 均衡布局 |
+| 5个模块（`add_module_grid`） | 直接传 5 → 4+1，最后行严重空缺 | 传 `intro_text` → 系统自动切换 3列，**text+2 / 3** |
+| 7个模块（`add_module_grid`） | 直接传 7 → 4+3，差1个 | 传 `intro_text` → 系统自动 **text+3 / 4** 均衡布局 |
+| 4/6张卡片 | — | 直接传，不需要 `intro_text` |
+| 4/6/8个模块 | — | 直接传，不需要 `intro_text` |
+
+**`intro_text` 内容指引：**
+- 写 2-4 句话，概括这一页的整体意义（为什么有这些卡片/模块）
+- 不要重复标题内容，要补充视角（比如：这些模块如何协作形成闭环、这些特性的共同出发点）
+- 可选：传 `intro_label` 作为小标题（8pt 绿色，最多 8 字），如 `"用户工作流总览"`、`"系统边界"`
+
+**`intro_text` 在页面中的视觉位置：**
+- 占据第一行第一列（top-left），与相邻卡片同高
+- 绿色左边框 + 浅绿底色（`PRIMARY_100`）
+- 文字锚定在 slot 下半段（约 38% 往下），给上方留呼吸空间
+- 视觉上与第一行所有卡片共享同一底边线（达到「底部对齐」效果）
 
 #### 正文排版数值
 

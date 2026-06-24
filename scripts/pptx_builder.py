@@ -524,7 +524,8 @@ _DECO_MIN_CHARS: int = 4   # 装饰笔画最小有效宽度（字符数）
 #        但左边界不超过 ML；char_start=7, char_count=4（"三大困局"）→ 正好4字，保持原位。
 
 
-def _apply_title_deco(slide, deco: dict, y_title_mm: float, title_sz_pt: float = 26.0):
+def _apply_title_deco(slide, deco: dict, y_title_mm: float, title_sz_pt: float = 26.0,
+                      anchor_top_mm: float = None, anchor_bot_mm: float = None):
     """Apply one decorative element to the header title area.
 
     deco keys:
@@ -541,8 +542,9 @@ def _apply_title_deco(slide, deco: dict, y_title_mm: float, title_sz_pt: float =
 
     Placement:
       underline → 1mm below title baseline, centered on the target chars
-      circle    → bottom-aligned with title baseline, centered on the target chars,
-                  rendered behind the title textbox so text reads through it
+      circle    → vertically centered between anchor_top_mm (label bottom) and
+                  anchor_bot_mm (subtitle top), so the gap above equals the gap below.
+                  Rendered behind the title textbox so text reads through it.
     """
     deco_type  = deco.get("type", "underline")
     char_start = deco.get("char_start", 0)
@@ -570,9 +572,18 @@ def _apply_title_deco(slide, deco: dict, y_title_mm: float, title_sz_pt: float =
         ratio = _DECO_SERIES.get(series, _DECO_A).get("circle", (None, 3.56))[1]
         cw    = w_mm + 8.0                              # extra left/right padding for circle
         cl    = max(ml_mm, l_mm - 4.0)
+        ch    = cw / ratio                              # circle height
+
+        if anchor_top_mm is not None and anchor_bot_mm is not None:
+            # Vertically center circle between label-bottom and subtitle-top,
+            # so gap_above == gap_below.
+            ct = (anchor_top_mm + anchor_bot_mm - ch) / 2
+        else:
+            ct = title_bot - ch                         # legacy: bottom-aligned
+
         _deco_img(slide, "circle",
                   l_mm = cl,
-                  t_mm = title_bot - cw / ratio,        # bottom-aligned with title baseline
+                  t_mm = ct,
                   w_mm = cw, series = series,
                   send_back = True)                      # render below title text
 
@@ -594,7 +605,12 @@ def _header(slide, title, subtitle="", label="", title_deco=None):
     _txb(slide, title, l=ML, t=y_title, w=CW * 0.82, h=Mm(18),
          sz=26, bold=True, color=BT.NEUTRAL_900_HEX)
     if title_deco:
-        _apply_title_deco(slide, title_deco, y_title_mm=y_title_mm)
+        # Compute anchor bounds so circle can be vertically centered between
+        # label-bottom and subtitle-top (equal gap above and below).
+        _anchor_top = (4.5 + 6.0) if label else y_title_mm   # label bottom, or title top
+        _anchor_bot = (27.0 if label else 24.0) if subtitle else (30.0 if label else 25.0)
+        _apply_title_deco(slide, title_deco, y_title_mm=y_title_mm,
+                          anchor_top_mm=_anchor_top, anchor_bot_mm=_anchor_bot)
     if subtitle:
         _txb(slide, subtitle, l=ML, t=Mm(24 if not label else 27),
              w=CW * 0.80, h=Mm(9), sz=12, color=BT.NEUTRAL_400_HEX)
@@ -888,6 +904,114 @@ class BrandPptx:
               fill=BT.NEUTRAL_200_HEX)
         return slide
 
+    # ── Two-Column Pill Tags ──────────────────────────────────────────────────
+
+    def add_two_col_pills(
+        self,
+        title: str,
+        subtitle: str = "",
+        label: str = "",
+        title_deco=None,
+        left_title: str = "",
+        left_pills: list = None,
+        left_desc: str = "",
+        right_title: str = "",
+        right_pills: list = None,
+        right_desc: str = "",
+    ):
+        """
+        Two-column callout layout with pill/badge tags.
+
+        Each column is a card with a left vertical accent strip, a title, and
+        auto-wrapping pill tags. Optionally a description text at the bottom.
+
+        left_pills / right_pills : list[str] — each item rendered as a pill badge
+        left_desc / right_desc   : str       — optional footer text (11pt NEUTRAL_400)
+
+        Left column uses PRIMARY palette (green pills).
+        Right column uses SECONDARY palette (yellow-green pills).
+        """
+        slide = self._new_slide()
+        _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
+        _footer(slide)
+
+        STRIP_W    = Mm(3.5)   # vertical accent strip width
+        PAD_LEFT   = Mm(8)     # content left edge (past strip)
+        PAD_X      = Mm(4)     # right inner padding
+        PAD_TOP    = Mm(4)     # top inner padding
+        PAD_BOT    = Mm(4)     # bottom inner padding
+        TITLE_H    = Mm(12)    # column title box height
+        PILL_H     = Mm(8.5)   # pill height
+        PILL_GAP_H = Mm(2.5)   # horizontal gap between pills
+        PILL_GAP_V = Mm(2.5)   # vertical gap between pill rows
+        PILL_PX    = 4.6       # mm per char (CJK-mix heuristic at 10pt)
+        PILL_PAD_X = Mm(3.5)   # horizontal text padding inside pill
+
+        cy     = CONTENT_Y + Mm(4)
+        card_h = CONTENT_H - Mm(4)
+
+        _COLS = [
+            (left_title,  left_pills  or [], left_desc,
+             BT.PRIMARY_500_HEX,   BT.PRIMARY_100_HEX,
+             BT.PRIMARY_500_HEX,   BT.WHITE_HEX),
+            (right_title, right_pills or [], right_desc,
+             BT.SECONDARY_500_HEX, BT.SECONDARY_100_HEX,
+             BT.SECONDARY_500_HEX, BT.NEUTRAL_900_HEX),
+        ]
+
+        for col_idx, (col_title, pills, col_desc,
+                      accent, card_bg, pill_bg, pill_fg) in enumerate(_COLS):
+            cx         = ML + col_idx * (C2_W + C2_GAP)
+            content_w  = C2_W - PAD_LEFT - PAD_X   # usable pill-flow width
+
+            # Card background
+            _card(slide, l=cx, t=cy, w=C2_W, h=card_h, bg=card_bg)
+
+            # Left accent strip (flat rect overlaid on card)
+            _rect(slide, l=cx, t=cy, w=STRIP_W, h=card_h, fill=accent, radius_mm=0)
+
+            # Column title (accent color, 13pt bold)
+            _txb(slide, col_title,
+                 l=cx + PAD_LEFT, t=cy + PAD_TOP,
+                 w=content_w, h=TITLE_H,
+                 sz=13, bold=True, color=accent)
+
+            # Pill flow
+            row_x = cx + PAD_LEFT
+            row_y = cy + PAD_TOP + TITLE_H + Mm(2)
+
+            for pill_text in pills:
+                n      = len(pill_text)
+                pill_w = min(Mm(max(16, n * PILL_PX + 7)), content_w)
+
+                # Wrap when current pill would overflow the column
+                if row_x + pill_w > cx + C2_W - PAD_X + Mm(0.5):
+                    row_x  = cx + PAD_LEFT
+                    row_y += PILL_H + PILL_GAP_V
+
+                _rect(slide, l=row_x, t=row_y, w=pill_w, h=PILL_H,
+                      fill=pill_bg, radius_mm=BT.RADIUS_PILL_MM)
+                _txb(slide, pill_text,
+                     l=row_x + PILL_PAD_X, t=row_y + Mm(1.3),
+                     w=pill_w - PILL_PAD_X * 2, h=Mm(7),
+                     sz=10, bold=False, color=pill_fg)
+
+                row_x += pill_w + PILL_GAP_H
+
+            # Optional description at card bottom
+            if col_desc:
+                desc_h = Mm(18)
+                desc_y = cy + card_h - PAD_BOT - desc_h
+                _rect(slide, l=cx + PAD_LEFT, t=desc_y - Mm(3),
+                      w=content_w, h=Mm(0.3), fill=BT.NEUTRAL_200_HEX)
+                _txb(slide, col_desc,
+                     l=cx + PAD_LEFT, t=desc_y,
+                     w=content_w, h=desc_h,
+                     sz=11, color=BT.NEUTRAL_400_HEX, ls_pt=17)
+
+        return slide
+
     # ── Three-Cards Slide ─────────────────────────────────────────────────────
 
     def add_three_cards(self,
@@ -965,11 +1089,18 @@ class BrandPptx:
                       cards: List[Dict[str, str]],
                       subtitle: str = "",
                       label: str = "",
-                      title_deco=None):
+                      title_deco=None,
+                      intro_text: str = "",
+                      intro_label: str = ""):
         """
         2-row × 3-column compact cards grid.
         cards: [{"title": "...", "body": "...", "tag": "(optional)"}] — up to 6
         Column index drives accent colour so each column pair shares a theme.
+
+        intro_text / intro_label: when exactly 5 cards are given, the top-left slot
+        becomes a summary text block instead of a card → balanced 2+3 layout:
+          Row 0: [intro_text_slot]  [card0]  [card1]
+          Row 1: [card2]  [card3]  [card4]
         """
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
@@ -1011,9 +1142,36 @@ class BrandPptx:
             else:
                 _cards_adj.append(_c)
 
+        # ── Intro text slot (5-card balanced layout) ──────────────────────────────
+        # When exactly 5 cards + intro_text are provided, slot [row=0, col=0] becomes
+        # a summary text block. Cards fill slots 1-5:
+        #   Row 0: [intro_slot]  [card0]  [card1]
+        #   Row 1: [card2]  [card3]  [card4]    → 2+3 balanced vs awkward bare 3+2
+        _use_intro   = intro_text and len(_cards_adj) == 5
+        _slot_offset = 1 if _use_intro else 0
+
+        if _use_intro:
+            ts_x = ML
+            ts_y = CONTENT_Y + PAD_TOP
+            _card(slide, l=ts_x, t=ts_y, w=C3_W, h=card_h, bg=BT.PRIMARY_100_HEX)
+            _rect(slide, l=ts_x, t=ts_y, w=Mm(3), h=card_h,
+                  fill=BT.PRIMARY_500_HEX, radius_mm=0)
+            _il = ts_x + Mm(7)
+            _iw = C3_W - Mm(11)
+            if intro_label:
+                _txb(slide, intro_label, l=_il, t=ts_y + Mm(5), w=_iw, h=Mm(6),
+                     sz=8, bold=True, color=BT.PRIMARY_500_HEX)
+            # Position text in the lower ~62% of the slot for visual bottom-anchor
+            _txt_top = ts_y + int(card_h * 0.38)
+            _txb(slide, intro_text,
+                 l=_il, t=_txt_top,
+                 w=_iw, h=card_h - (_txt_top - ts_y) - Mm(8),
+                 sz=12, color=BT.NEUTRAL_700_HEX, ls_pt=18)
+
         for i, c in enumerate(_cards_adj):
-            col       = i % 3
-            row       = i // 3
+            slot      = i + _slot_offset
+            col       = slot % 3
+            row       = slot // 3
             x         = ML + col * (C3_W + C3_GAP)
             y         = CONTENT_Y + PAD_TOP + row * (card_h + ROW_GAP)
             is_dark   = c.get("dark",   False)
@@ -1025,8 +1183,8 @@ class BrandPptx:
                 bg, acc, txt_color = BT.CARD_DANGER_BG, BT.DANGER_HEX, BT.NEUTRAL_900_HEX
                 body_color = BT.NEUTRAL_700_HEX
             else:
-                bg         = card_colors[i % 6]
-                acc        = accent_colors[i % 6]
+                bg         = card_colors[slot % 6]
+                acc        = accent_colors[slot % 6]
                 txt_color  = BT.NEUTRAL_900_HEX
                 body_color = BT.NEUTRAL_700_HEX
 
@@ -2034,9 +2192,11 @@ class BrandPptx:
                         modules: List[Dict],
                         subtitle: str = "",
                         label: str = "",
-                        title_deco=None):
+                        title_deco=None,
+                        intro_text: str = "",
+                        intro_label: str = ""):
         """
-        4-per-row feature module grid, up to 8 modules.
+        Feature module grid, up to 8 modules. Default: 4-per-row (2×4).
 
         modules: [{
             "num":      "01",          # sequence number shown top-right
@@ -2047,6 +2207,11 @@ class BrandPptx:
             "icon_bg":  BT.PRIMARY_100_HEX,    # icon square bg  (optional, defaults cycle)
             "featured": False,                  # True → dark bg, white text (flagship)
         }]
+
+        intro_text / intro_label: when 5 or 7 modules are given, slot [0,0] becomes a
+        summary text block and the column count adapts for a balanced layout:
+          5 mods → 3-col  (row0: text+m0+m1,  row1: m2+m3+m4)    → 2+3
+          7 mods → 4-col  (row0: text+m0+m1+m2, row1: m3+m4+m5+m6) → 3+4
         """
         _ICON_DEFAULTS = [
             BT.PRIMARY_100_HEX,    BT.CARD_ORANGE_BG,   BT.NEUTRAL_100_HEX, BT.PRIMARY_500_HEX,
@@ -2062,8 +2227,6 @@ class BrandPptx:
         _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
         _footer(slide)
 
-        COLS    = 4
-        CELL_W  = Mm(74.1)
         CELL_H  = Mm(60)
         COL_GAP = Mm(3.5)
         ROW_GAP = Mm(3.5)
@@ -2087,14 +2250,47 @@ class BrandPptx:
             else:
                 _modules_adj.append(_m)
 
+        # ── Column count + cell width: adapts when intro_text is provided ─────────
+        # 5 mods + intro_text → 3-col (row0: text+m0+m1,    row1: m2+m3+m4)   2+3
+        # 7 mods + intro_text → 4-col (row0: text+m0+m1+m2, row1: m3+m4+m5+m6) 3+4
+        # all other counts    → 4-col standard grid
+        _use_intro   = intro_text and (_n_mods in (5, 7))
+        _slot_offset = 1 if _use_intro else 0
+        if _use_intro and _n_mods == 5:
+            COLS   = 3
+            CELL_W = (CW - 2 * COL_GAP) // 3
+        else:
+            COLS   = 4
+            CELL_W = Mm(74.1)
+
+        if _use_intro:
+            ts_x = ML
+            ts_y = GRID_Y
+            _card(slide, l=ts_x, t=ts_y, w=CELL_W, h=CELL_H,
+                  bg=BT.PRIMARY_100_HEX, border=None, radius_mm=BT.RADIUS_SM_MM)
+            _rect(slide, l=ts_x, t=ts_y, w=Mm(2.5), h=CELL_H,
+                  fill=BT.PRIMARY_500_HEX, radius_mm=0)
+            _il = ts_x + Mm(6.5)
+            _iw = CELL_W - Mm(10)
+            if intro_label:
+                _txb(slide, intro_label, l=_il, t=ts_y + Mm(4), w=_iw, h=Mm(5),
+                     sz=7, bold=True, color=BT.PRIMARY_500_HEX)
+            # Text in lower ~62% of slot — visual bottom-anchor feel
+            _txt_top = ts_y + int(CELL_H * 0.38)
+            _txb(slide, intro_text,
+                 l=_il, t=_txt_top,
+                 w=_iw, h=CELL_H - (_txt_top - ts_y) - Mm(6),
+                 sz=10, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+
         for i, mod in enumerate(_modules_adj):
-            col      = i % COLS
-            row      = i // COLS
+            slot     = i + _slot_offset
+            col      = slot % COLS
+            row      = slot // COLS
             cx       = ML + col * (CELL_W + COL_GAP)
             cy       = GRID_Y + row * (CELL_H + ROW_GAP)
             featured = mod.get("featured", False)
-            accent   = mod.get("accent",  _ACCENT_DEFAULTS[i % len(_ACCENT_DEFAULTS)])
-            icon_bg  = mod.get("icon_bg", _ICON_DEFAULTS[i % len(_ICON_DEFAULTS)])
+            accent   = mod.get("accent",  _ACCENT_DEFAULTS[slot % len(_ACCENT_DEFAULTS)])
+            icon_bg  = mod.get("icon_bg", _ICON_DEFAULTS[slot % len(_ICON_DEFAULTS)])
             cell_bg  = BT.NEUTRAL_900_HEX if featured else BT.WHITE_HEX
             ttl_c    = BT.WHITE_HEX if featured else BT.NEUTRAL_900_HEX
             bul_c    = BT.NEUTRAL_200_HEX if featured else BT.NEUTRAL_700_HEX
