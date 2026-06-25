@@ -67,6 +67,18 @@ _DECO_SERIES: dict = {
 _DECO_A: dict = _DECO_SERIES["a"]   # backward-compat alias
 _DECO_CHAR_W_MM: float = 8.1        # 26pt bold CJK 估算字宽 (mm/字)
 
+# ── Brand inline arrow images (bullet arrow replacement) ──────────────────────
+# Original PNG natural direction: upper-right (~NE, 60° clockwise from east).
+# CW +60° → east (→ replacement);  CCW −30° → north (↑ replacement).
+_BULLET_ARROW_PATHS: dict = {
+    "primary": os.path.join(_DECO_DIR, "primary arrow.png"),   # lime-green gradient
+    "white":   os.path.join(_DECO_DIR, "white arrow.png"),     # white, for dark backgrounds
+}
+_BULLET_ARROW_ROT: dict = {
+    "right": 60.0,   # CW 60° → pointing east
+    "up":   -30.0,   # CCW 30° → pointing north
+}
+
 from pptx import Presentation
 from pptx.util import Inches, Pt, Mm, Emu
 from pptx.dml.color import RGBColor
@@ -702,6 +714,88 @@ def _seq_badge(slide, x, y, seq: int, color: str, size_mm: float = 9):
          l=x, t=y + Mm(0.5), w=s, h=s - Mm(1),
          sz=int(size_mm * 0.9), bold=True, color=BT.WHITE_HEX,
          align=PP_ALIGN.CENTER, wrap=False)
+
+
+def _brand_arrow(slide, x, y, size_mm=5.5, direction="right", style="primary"):
+    """Insert a brand arrow PNG icon at position (x, y), bounding square = size_mm×size_mm.
+    direction: "right" (CW 60°) | "up" (CCW 30°) | float (custom CW degrees).
+    style: "primary" (lime-green gradient) | "white" (for dark backgrounds).
+    """
+    img_path = _BULLET_ARROW_PATHS.get(style, _BULLET_ARROW_PATHS["primary"])
+    if not os.path.exists(img_path):
+        return None
+    s = Mm(size_mm)
+    pic = slide.shapes.add_picture(img_path, int(x), int(y), int(s), int(s))
+    rot = _BULLET_ARROW_ROT.get(direction, direction) if isinstance(direction, str) else float(direction)
+    pic.rotation = rot
+    return pic
+
+
+def _render_content_with_arrows(slide, content, x, y, w, h,
+                                  sz=14, color=None, ls_pt=22,
+                                  arrow_style="primary", arrow_size_mm=5.5):
+    """
+    Render free-form content string, replacing standalone '→ text' lines with
+    brand arrow PNG + bold text rows. Other lines rendered as normal text blocks.
+
+    A 'standalone arrow line' is any line whose first non-space character is '→'.
+    Mid-sentence '→' (e.g. 'A → B') are NOT affected.
+
+    arrow_style: "primary" | "white"  (matches slide background tone)
+    arrow_size_mm: arrow icon square size in mm (default 5.5, matches 14pt line)
+    """
+    color = color or BT.NEUTRAL_700_HEX
+    if not content:
+        return
+
+    lines = content.split('\n')
+    ARROW_SZ  = Mm(arrow_size_mm)
+    ARROW_GAP = Mm(2.5)
+    LINE_H_MM = ls_pt * 0.353          # approx mm per text line
+    ROW_H     = Mm(max(arrow_size_mm + 1.5, LINE_H_MM))
+    TEXT_W_MM = w / 36000
+
+    # Group lines into sequential runs: ("text", joined_str) or ("arrow", text_after_arrow)
+    runs = []
+    text_buf = []
+    for line in lines:
+        if line.strip().startswith('→'):
+            if text_buf:
+                runs.append(("text", '\n'.join(text_buf)))
+                text_buf = []
+            arrow_text = line.strip()[1:].lstrip()
+            runs.append(("arrow", arrow_text))
+        else:
+            text_buf.append(line)
+    if text_buf:
+        runs.append(("text", '\n'.join(text_buf)))
+
+    cur_y  = y
+    max_y  = y + h
+
+    for kind, seg in runs:
+        if cur_y + Mm(3) > max_y:
+            break
+
+        if kind == "text":
+            block_h_mm = _est_text_h_mm(seg, sz, TEXT_W_MM, ls_pt=ls_pt)
+            block_h = min(Mm(block_h_mm), max_y - cur_y)
+            if block_h > Mm(1.5):
+                _txb(slide, seg, l=x, t=cur_y, w=w, h=block_h,
+                     sz=sz, color=color, ls_pt=ls_pt)
+            cur_y += block_h
+
+        elif kind == "arrow":
+            arrow_top = cur_y + max(0, (ROW_H - ARROW_SZ) / 2)
+            _brand_arrow(slide, x, arrow_top,
+                         size_mm=arrow_size_mm, direction="right", style=arrow_style)
+            text_x = x + ARROW_SZ + ARROW_GAP
+            text_w = w - ARROW_SZ - ARROW_GAP
+            avail  = min(ROW_H, max_y - cur_y)
+            if avail > Mm(2):
+                _txb(slide, seg, l=text_x, t=cur_y, w=text_w, h=avail,
+                     sz=sz, bold=True, color=color, ls_pt=ls_pt)
+            cur_y += ROW_H + Mm(1)
 
 
 def _render_card_inner(slide, layout, x, y, w, h, data, acc_color,
@@ -1342,9 +1436,11 @@ class BrandPptx:
                 body_top = top + Mm(13)
             else:
                 body_top = top
-            _txb(slide, content,
-                 l=left_x, t=body_top, w=C2_W, h=height - Mm(13),
-                 sz=14, color=BT.NEUTRAL_700_HEX, ls_pt=22)
+            _render_content_with_arrows(
+                slide, content,
+                x=left_x, y=body_top, w=C2_W, h=height - Mm(13),
+                sz=14, color=BT.NEUTRAL_700_HEX, ls_pt=22,
+                arrow_style="primary", arrow_size_mm=5.5)
 
         # Vertical divider
         _rect(slide,
@@ -1797,8 +1893,12 @@ class BrandPptx:
             row_h = []
             for r in range(rows):
                 row_items = stats[r * 2 : r * 2 + 2]
-                rh = max((_required_card_h(d) for _, _, d in row_items), default=_MIN_CARD_H)
-                row_h.append(int(max(_MIN_CARD_H, min(rh, _MAX_ROW_H))))
+                if not note:
+                    # No callout: expand cards to fill available height
+                    row_h.append(int(_MAX_ROW_H))
+                else:
+                    rh = max((_required_card_h(d) for _, _, d in row_items), default=_MIN_CARD_H)
+                    row_h.append(int(max(_MIN_CARD_H, min(rh, _MAX_ROW_H))))
 
             row_y = [CONTENT_Y + Mm(6)]
             for r in range(1, rows):
@@ -3290,14 +3390,15 @@ class BrandPptx:
                       sz=14, bold=True, color=acc_txt, ls_pt=20)
             tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
-            # Body text in right panel
-            body_tb = _txb(slide, item.get("body", ""),
-                           l=ML + LEFT_W + CARD_GAP + Mm(5),
-                           t=y + Mm(5),
-                           w=RIGHT_W - Mm(10),
-                           h=row_h - Mm(10),
-                           sz=13, color=BT.NEUTRAL_700_HEX, ls_pt=18)
-            body_tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            # Body text in right panel (arrows auto-replaced with brand PNG)
+            _render_content_with_arrows(
+                slide, item.get("body", ""),
+                x=ML + LEFT_W + CARD_GAP + Mm(5),
+                y=y + Mm(5),
+                w=RIGHT_W - Mm(10),
+                h=row_h - Mm(10),
+                sz=13, color=BT.NEUTRAL_700_HEX, ls_pt=18,
+                arrow_style="primary", arrow_size_mm=4.5)
 
         if note:
             _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
@@ -3399,11 +3500,12 @@ class BrandPptx:
             # Body text
             body_h = row_h - (y_inner - y) - Mm(5)
             if body_h > Mm(8):
-                body_tb = _txb(slide, item.get("body", ""),
-                               l=CONTENT_L, t=y_inner,
-                               w=inner_w, h=body_h,
-                               sz=12, color=BT.NEUTRAL_700_HEX, ls_pt=17)
-                body_tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                _render_content_with_arrows(
+                    slide, item.get("body", ""),
+                    x=CONTENT_L, y=y_inner,
+                    w=inner_w, h=body_h,
+                    sz=12, color=BT.NEUTRAL_700_HEX, ls_pt=17,
+                    arrow_style="primary", arrow_size_mm=4.5)
 
         if note:
             _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
