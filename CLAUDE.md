@@ -239,7 +239,8 @@ doc.save(os.path.join(_DOCS, "output.docx"))
 | 3 个并列 | `add_three_cards` |
 | **3 个编号问题/原因/缺陷**（替代 three_cards） | `add_numbered_rows` |
 | **3 个数据类型/规格对比**（替代 three_cards） | `add_accent_rows` |
-| 4 或 6 个并列 | `add_six_cards` |
+| **4 个并列（富文本特性/壁垒/对比）** | `add_four_cards`（单行横排，禁用 `add_six_cards`） |
+| 6 个并列 | `add_six_cards` |
 | **5 个并列** | `add_six_cards` + `intro_text`/`intro_flow` |
 | 核心指标 ≤4 | `add_big_stats`（自动彩色两列） |
 | 核心指标 5-8 | `add_big_stats`（自动中性白底） |
@@ -263,7 +264,8 @@ doc.save(os.path.join(_DOCS, "output.docx"))
 | 5 张卡片 | 直接传 5 → 3+2 行 | 传 `intro_text`/`intro_flow` → text+2 / 3 均衡 |
 | 5 个模块 | 直接传 5 → 4+1 行 | 传 `intro_text`/`intro_flow` → 3 列 text+2 / 3 |
 | 7 个模块 | 直接传 7 → 4+3 行 | 传 `intro_text`/`intro_flow` → 4 列 text+3 / 4 |
-| 4/6 卡片，4/6/8 模块 | — | 直接传，无需 intro |
+| **4 张卡片** | `add_six_cards`（产生 3+1 孤立行）| **改用 `add_four_cards`（横排单行）** |
+| 6 卡片，4/6/8 模块 | — | 直接传，无需 intro |
 
 **intro slot 内容参数（可并用）：**
 - `intro_label`：小标题，8pt 绿色，≤8 字

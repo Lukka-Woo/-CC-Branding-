@@ -1600,6 +1600,9 @@ class BrandPptx:
         else:
             use_color = bool(colorful) and (n <= 6)
 
+        # Reserve space for the callout block so cards never overlap it.
+        _note_reserve = (CALLOUT_H + Mm(6)) if note else Mm(0)
+
         if use_color and n <= 4:
             # ── 2-column colorful layout (≤4 items) — content-adaptive row height ──
             # Val and label heights "hug" their content (1-line tight sizing).
@@ -1618,8 +1621,8 @@ class BrandPptx:
             _PAD_BOT    = Mm(10)
             _MIN_CARD_H = Mm(54)
 
-            # Hard max: cards must not reach the footer zone (logo lives there)
-            _avail_rows = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(6))
+            # Hard max: cards must not reach the callout or footer zone.
+            _avail_rows = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(6)) - _note_reserve
             _MAX_ROW_H  = int((_avail_rows - (rows - 1) * gap) // rows)
 
             def _required_card_h(desc_text):
@@ -1680,7 +1683,7 @@ class BrandPptx:
             _ABOVE  = Mm(8) + _VAL_H + Mm(2) + _LBL_H + Mm(3)   # = Mm(39)
             _BOT    = Mm(10)
             _MIN_H  = Mm(50)
-            _avail  = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(3))
+            _avail  = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(3)) - _note_reserve
             _MAX_H  = int((_avail - row_gap) // 2)
 
             def _color_row_h(items, ncols):
@@ -1737,7 +1740,7 @@ class BrandPptx:
             _ABOVE  = Mm(8) + _VAL_H + Mm(2) + _LBL_H + Mm(3)   # = Mm(39)
             _BOT    = Mm(10)
             _MIN_H  = Mm(50)
-            _avail  = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(3))
+            _avail  = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(3)) - _note_reserve
             _MAX_H  = int((_avail - row_gap) // 2)
 
             def _neutral_row_h(items, ncols):
@@ -2563,14 +2566,27 @@ class BrandPptx:
           5 mods → 3-col  (row0: text+m0+m1,  row1: m2+m3+m4)    → 2+3
           7 mods → 4-col  (row0: text+m0+m1+m2, row1: m3+m4+m5+m6) → 3+4
         """
+        # Paired semantically: each slot (icon_bg, accent) comes from the same color family.
+        # icon_bg is always a *_100 / *_BG light color — never a *_500 saturated color.
+        # Slot order cycles through 6 distinct palettes then wraps for decks with 7-8 modules.
         _ICON_DEFAULTS = [
-            BT.PRIMARY_100_HEX,    BT.CARD_ORANGE_BG,   BT.NEUTRAL_100_HEX, BT.PRIMARY_500_HEX,
-            BT.SECONDARY_100_HEX,  BT.CARD_PURPLE_BG,   BT.CARD_TEAL_BG,    BT.SECONDARY_500_HEX,
+            BT.PRIMARY_100_HEX,    BT.CARD_ORANGE_BG,   BT.NEUTRAL_100_HEX,   BT.SECONDARY_100_HEX,
+            BT.CARD_TEAL_BG,       BT.CARD_PURPLE_BG,   BT.PRIMARY_100_HEX,   BT.CARD_ORANGE_BG,
         ]
         _ACCENT_DEFAULTS = [
-            BT.SUCCESS_HEX,    BT.WARNING_HEX,   BT.NEUTRAL_700_HEX, BT.PRIMARY_500_HEX,
-            BT.SUCCESS_HEX,    BT.PURPLE_HEX,    BT.TEAL_HEX,        BT.SECONDARY_500_HEX,
+            BT.PRIMARY_500_HEX,    BT.WARNING_HEX,      BT.SUCCESS_HEX,        BT.SECONDARY_500_HEX,
+            BT.TEAL_HEX,           BT.PURPLE_HEX,       BT.PRIMARY_500_HEX,    BT.WARNING_HEX,
         ]
+        # When caller sets accent but not icon_bg, derive icon_bg from this map
+        # so the circular badge and the en label always share the same color family.
+        _ACCENT_TO_ICON_BG = {
+            BT.PRIMARY_500_HEX:   BT.PRIMARY_100_HEX,
+            BT.SUCCESS_HEX:       BT.NEUTRAL_100_HEX,
+            BT.SECONDARY_500_HEX: BT.SECONDARY_100_HEX,
+            BT.WARNING_HEX:       BT.CARD_ORANGE_BG,
+            BT.TEAL_HEX:          BT.CARD_TEAL_BG,
+            BT.PURPLE_HEX:        BT.CARD_PURPLE_BG,
+        }
 
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
@@ -2643,7 +2659,13 @@ class BrandPptx:
             cy       = GRID_Y + row * (CELL_H + ROW_GAP)
             featured = mod.get("featured", False)
             accent   = mod.get("accent",  _ACCENT_DEFAULTS[slot % len(_ACCENT_DEFAULTS)])
-            icon_bg  = mod.get("icon_bg", _ICON_DEFAULTS[slot % len(_ICON_DEFAULTS)])
+            if "icon_bg" in mod:
+                icon_bg = mod["icon_bg"]
+            elif "accent" in mod:
+                # auto-derive matching light bg from the custom accent so icon and en label share color family
+                icon_bg = _ACCENT_TO_ICON_BG.get(mod["accent"], _ICON_DEFAULTS[slot % len(_ICON_DEFAULTS)])
+            else:
+                icon_bg = _ICON_DEFAULTS[slot % len(_ICON_DEFAULTS)]
             cell_bg  = BT.NEUTRAL_900_HEX if featured else BT.WHITE_HEX
             ttl_c    = BT.WHITE_HEX if featured else BT.NEUTRAL_900_HEX
             bul_c    = BT.NEUTRAL_200_HEX if featured else BT.NEUTRAL_700_HEX
@@ -2923,6 +2945,80 @@ class BrandPptx:
             prs.add_deco_arrow(slide, "arrow1", l_mm=130, t_mm=70, w_mm=50)
         """
         return _deco_img(slide, arrow_type, l_mm, t_mm, w_mm, series=series)
+
+    # ── Four-Column Card Row ──────────────────────────────────────────────────
+
+    def add_four_cards(self,
+                       title: str,
+                       cards: List[Dict[str, str]],
+                       subtitle: str = "",
+                       label: str = "",
+                       title_deco=None):
+        """
+        Single-row four-column card layout — for exactly 4 parallel items.
+
+        Use this instead of add_six_cards when you have 4 items:
+        add_six_cards with 4 items produces a 3+1 orphan layout.
+        add_four_cards gives 4 equal-width tall cards in one balanced row.
+
+        Each card shares the visual language of add_three_cards:
+          tag (optional eyebrow) → title → accent bar → body text
+
+        Color palette (cycles across 4 slots):
+          0: PRIMARY_100  / PRIMARY_500    (green)
+          1: NEUTRAL_100  / SUCCESS        (gray-green)
+          2: SECONDARY_100/ SECONDARY_500  (lime)
+          3: CARD_ORANGE_BG/ WARNING       (orange)
+
+        cards: [{"title": "...", "body": "...", "tag": "(optional)"}]
+        """
+        slide = self._new_slide()
+        _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
+        _footer(slide)
+
+        n        = min(len(cards), 4)
+        C4_GAP   = Mm(4)
+        C4_W     = (CW - 3 * C4_GAP) // 4
+        card_top = CONTENT_Y + Mm(5)
+        card_h   = CONTENT_H - Mm(5)
+
+        card_colors   = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX,
+                         BT.SECONDARY_100_HEX, BT.CARD_ORANGE_BG]
+        accent_colors = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX,
+                         BT.SECONDARY_500_HEX, BT.WARNING_HEX]
+
+        for i, c in enumerate(cards[:4]):
+            x         = ML + i * (C4_W + C4_GAP)
+            bg        = card_colors[i % 4]
+            acc       = accent_colors[i % 4]
+            _card(slide, l=x, t=card_top, w=C4_W, h=card_h, bg=bg)
+
+            inner_l = x + Mm(4)
+            inner_w = C4_W - Mm(8)
+            y_off   = card_top + Mm(5)
+
+            tag = c.get("tag", "")
+            if tag:
+                _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(6),
+                     sz=8, bold=True, color=acc)
+                y_off += Mm(7)
+
+            _txb(slide, c.get("title", ""),
+                 l=inner_l, t=y_off, w=inner_w, h=Mm(22),
+                 sz=14, bold=True, color=BT.NEUTRAL_900_HEX)
+            y_off += Mm(23)
+
+            _rect(slide, l=inner_l, t=y_off, w=Mm(20), h=Mm(1), fill=acc)
+            y_off += Mm(5)
+
+            body_tb = _txb(slide, c.get("body", ""),
+                           l=inner_l, t=y_off, w=inner_w,
+                           h=card_h - (y_off - card_top) - Mm(6),
+                           sz=12, color=BT.NEUTRAL_700_HEX, ls_pt=17)
+            body_tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+        return slide
 
     # ── Numbered Rows (problem / reason / defect list) ───────────────────────
 
