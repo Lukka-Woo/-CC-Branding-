@@ -276,6 +276,46 @@ doc.save(os.path.join(_DOCS, "output.docx"))
 
 ---
 
+## 卡片内容布局类型（Card Inner Layout）
+
+卡片背景形状由版式方法控制（颜色、圆角、边框）；**卡片内部内容**可通过每张卡片 dict 的 `"layout"` 字段选择以下类型。不传 `"layout"` 时默认为 `"vertical_stack"`（向下兼容）。
+
+| 布局类型 | 适用场景 | 关键 data 字段 |
+|---|---|---|
+| `"vertical_stack"` | **默认**，tag→title→bar→body 竖排 | `tag`, `title`, `body` |
+| `"horizontal_split"` | 有明确数值指标，数字放右侧，说明文字放左侧 | `metric`（右侧大字），`title`，`body` |
+| `"icon_left"` | 功能/模块类卡片，圆形 badge 在左上，正文在右侧及下方 | `icon`（1-2字母），`title`，`body` |
+| `"quote_card"` | 用户引语、数据背书、权威声明 | `quote`（引用正文），`attribution`（来源） |
+
+### `horizontal_split` 使用示例
+
+```python
+# 在 add_three_cards / add_six_cards / add_four_cards 中
+{"layout": "horizontal_split", "metric": "99.9%", "title": "数据连续性", "body": "断网自动触发插值，历史数据无缺口"}
+
+# 在 add_big_stats 中（整个方法级别控制）
+prs.add_big_stats(..., card_layout="horizontal_split")
+# 此时 stats 的 (val, label, desc) 分别对应 metric右侧 / title左上 / body左下
+```
+
+### `icon_left` 使用示例
+
+```python
+{"layout": "icon_left", "icon": "IoT", "title": "实时数据采集", "body": "秒级采集，15 分钟时间桶自动拼接"}
+```
+
+### `quote_card` 使用示例
+
+```python
+{"layout": "quote_card", "quote": "上线三个月，峰时用电占比从 78% 降到 31%。", "attribution": "某头部汽车 Tier-1 厂长"}
+```
+
+### 文本溢出防护（hard rule）
+
+所有卡片 body 文本框统一设置 `auto_size = TEXT_TO_FIT_SHAPE`，文字自动收缩适配文本框，**不允许文字溢出卡片边界**。生成脚本中的 body 文字不需要手动插入 `\n`，让系统自动换行。
+
+---
+
 ## Pill 使用规范
 
 ### 正确使用场景

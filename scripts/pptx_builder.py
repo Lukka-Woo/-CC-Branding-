@@ -704,6 +704,142 @@ def _seq_badge(slide, x, y, seq: int, color: str, size_mm: float = 9):
          align=PP_ALIGN.CENTER, wrap=False)
 
 
+def _render_card_inner(slide, layout, x, y, w, h, data, acc_color,
+                       txt_color=None, body_color=None, pad_s=None, pad_t=None):
+    """
+    Render card interior content for non-vertical-stack layouts.
+    Caller must draw the card background rect first.
+
+    layout values:
+      "horizontal_split" — large metric RIGHT | tag+title+body LEFT
+      "icon_left"        — circular badge top-left | title beside | body full-width below
+      "quote_card"       — decorative quote mark + quote text + bottom attribution
+
+    x,y,w,h : card bounding box in EMU
+    data    : dict; keys vary by layout:
+      horizontal_split: "metric", "tag", "title", "body",
+                        "metric_color" (default acc_color),
+                        "metric_sz"   (default 28, use 44 for big_stats),
+                        "title_sz"    (default 12),
+                        "body_sz"     (default 11)
+      icon_left       : "icon" (1-2 chars for badge), "tag", "title", "body"
+      quote_card      : "quote" (or "body"), "attribution"
+    acc_color  : accent hex — tag text, icon badge bg, quote mark color
+    txt_color  : title color (default NEUTRAL_900)
+    body_color : body text color (default NEUTRAL_700)
+    pad_s      : side padding in EMU (default Mm(5))
+    pad_t      : top  padding in EMU (default Mm(6))
+    """
+    txt_color  = txt_color  or BT.NEUTRAL_900_HEX
+    body_color = body_color or BT.NEUTRAL_700_HEX
+    pad_s = pad_s if pad_s is not None else Mm(5)
+    pad_t = pad_t if pad_t is not None else Mm(6)
+    pad_b = Mm(7)
+    inner_l = x + pad_s
+    inner_w = w - 2 * pad_s
+
+    # ── horizontal_split ──────────────────────────────────────────────────────
+    if layout == "horizontal_split":
+        SPLIT_GAP  = Mm(4)
+        RIGHT_FRAC = 0.38
+        right_w    = int(inner_w * RIGHT_FRAC)
+        left_w     = inner_w - right_w - SPLIT_GAP
+        right_x    = inner_l + left_w + SPLIT_GAP
+        mtr_sz     = data.get("metric_sz",  28)
+        title_sz   = data.get("title_sz",   12)
+        body_sz    = data.get("body_sz",    11)
+        mtr_color  = data.get("metric_color", acc_color)
+        metric     = data.get("metric", data.get("val", ""))
+
+        # RIGHT: large metric, right-aligned, anchored near top — no wrap
+        mtr_h = Mm(int(mtr_sz * 0.353) + 6)
+        if metric:
+            _txb(slide, metric,
+                 l=right_x, t=y + pad_t, w=right_w, h=mtr_h,
+                 sz=mtr_sz, bold=True, align=PP_ALIGN.RIGHT,
+                 color=mtr_color, wrap=False)
+
+        # LEFT: tag → title → body (fills remaining height)
+        y_off = y + pad_t
+        tag = data.get("tag", "")
+        if tag:
+            _txb(slide, tag, l=inner_l, t=y_off, w=left_w, h=Mm(5),
+                 sz=7, bold=True, color=acc_color)
+            y_off += Mm(6)
+        title = data.get("title", "")
+        t_h = Mm(10)   # 1-line headroom for 11-14pt titles
+        if title:
+            _txb(slide, title, l=inner_l, t=y_off, w=left_w, h=t_h,
+                 sz=title_sz, bold=True, color=txt_color)
+            y_off += t_h + Mm(2)
+        body = data.get("body", "")
+        body_h = y + h - y_off - pad_b
+        if body and body_h > Mm(4):
+            tb = _txb(slide, body, l=inner_l, t=y_off, w=left_w, h=body_h,
+                      sz=body_sz, color=body_color, ls_pt=round(body_sz * 1.4))
+            tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+    # ── icon_left ─────────────────────────────────────────────────────────────
+    elif layout == "icon_left":
+        ICON_D = Mm(20)
+
+        # Draw badge circle (top-left of inner zone)
+        _rect(slide, l=inner_l, t=y + pad_t, w=ICON_D, h=ICON_D,
+              fill=acc_color, radius_mm=BT.RADIUS_PILL_MM)
+        icon_ch = data.get("icon", "")
+        if icon_ch:
+            _txb(slide, icon_ch[:2].upper(),
+                 l=inner_l, t=y + pad_t + Mm(2), w=ICON_D, h=ICON_D - Mm(4),
+                 sz=10, bold=True, color=BT.WHITE_HEX,
+                 align=PP_ALIGN.CENTER, wrap=False)
+
+        # Content right of icon (title / tag — narrow zone)
+        cnt_x = inner_l + ICON_D + Mm(4)
+        cnt_w = x + w - cnt_x - pad_s
+        y_off = y + pad_t
+        tag = data.get("tag", "")
+        if tag and cnt_w > Mm(8):
+            _txb(slide, tag, l=cnt_x, t=y_off, w=cnt_w, h=Mm(5),
+                 sz=7, bold=True, color=acc_color)
+            y_off += Mm(6)
+        title = data.get("title", "")
+        if title and cnt_w > Mm(8):
+            _txb(slide, title, l=cnt_x, t=y_off, w=cnt_w, h=Mm(14),
+                 sz=13, bold=True, color=txt_color)
+            y_off += Mm(15)
+
+        # Body starts below icon zone, spans full inner width
+        body_y = max(y_off, y + pad_t + ICON_D + Mm(4))
+        body_h = y + h - body_y - pad_b
+        body = data.get("body", "")
+        if body and body_h > Mm(4):
+            tb = _txb(slide, body, l=inner_l, t=body_y, w=inner_w, h=body_h,
+                      sz=12, color=body_color, ls_pt=17)
+            tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+    # ── quote_card ────────────────────────────────────────────────────────────
+    elif layout == "quote_card":
+        # Decorative opening quote mark (decorative, not content)
+        _txb(slide, "“",
+             l=inner_l, t=y + Mm(4), w=Mm(14), h=Mm(11),
+             sz=28, bold=True, color=acc_color)
+        quote  = data.get("quote", data.get("body", ""))
+        attrib = data.get("attribution", "")
+        attrib_h = Mm(10) if attrib else Mm(0)
+        q_top    = y + Mm(13)
+        q_h      = y + h - q_top - attrib_h - pad_b
+        if quote and q_h > Mm(4):
+            tb = _txb(slide, quote,
+                      l=inner_l + Mm(4), t=q_top,
+                      w=inner_w - Mm(4), h=q_h,
+                      sz=13, color=body_color, ls_pt=19)
+            tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+        if attrib:
+            _txb(slide, f"— {attrib}",
+                 l=inner_l, t=y + h - attrib_h - Mm(4), w=inner_w, h=attrib_h,
+                 sz=10, color=BT.NEUTRAL_400_HEX, align=PP_ALIGN.RIGHT)
+
+
 # ── Pill design system ────────────────────────────────────────────────────────
 
 # Named style presets: (bg_hex, fg_hex)
@@ -1369,6 +1505,13 @@ class BrandPptx:
                 body_color = BT.NEUTRAL_700_HEX
             _card(slide, l=x, t=card_top, w=C3_W, h=card_h, bg=bg)
 
+            layout = c.get("layout", "vertical_stack")
+            if layout != "vertical_stack":
+                _render_card_inner(slide, layout, x, card_top, C3_W, card_h,
+                                   c, tag_color, txt_color=txt_color,
+                                   body_color=body_color, pad_s=Mm(5), pad_t=Mm(6))
+                continue
+
             inner_l = x + Mm(5)
             inner_w = C3_W - Mm(10)
             y_off   = card_top + Mm(6)
@@ -1512,6 +1655,14 @@ class BrandPptx:
                 body_color = BT.NEUTRAL_700_HEX
 
             _card(slide, l=x, t=y, w=C3_W, h=card_h, bg=bg)
+
+            layout = c.get("layout", "vertical_stack")
+            if layout != "vertical_stack":
+                _render_card_inner(slide, layout, x, y, C3_W, card_h,
+                                   c, acc, txt_color=txt_color,
+                                   body_color=body_color, pad_s=Mm(4), pad_t=Mm(5))
+                continue
+
             _seq_badge(slide, x=x + C3_W - Mm(13), y=y + Mm(4), seq=i + 1, color=acc)
 
             inner_l = x + Mm(4)
@@ -1558,7 +1709,8 @@ class BrandPptx:
                       colorful=None,
                       title_deco=None,
                       note: str = "",
-                      note_style: str = "note"):
+                      note_style: str = "note",
+                      card_layout: str = "vertical_stack"):
         """
         Stats card grid.
         colorful=None (auto): ≤4 items → 2-col colorful; 5+ items → 2-row neutral
@@ -1619,16 +1771,28 @@ class BrandPptx:
             _LABEL_H    = Mm(8)    # 14pt bold, 1 line: ~5mm + margin
             _ABOVE_DESC = Mm(8) + _VAL_H + Mm(2) + _LABEL_H + Mm(3)   # = Mm(41)
             _PAD_BOT    = Mm(10)
-            _MIN_CARD_H = Mm(54)
 
             # Hard max: cards must not reach the callout or footer zone.
             _avail_rows = SLIDE_H - FOOTER_H - (CONTENT_Y + Mm(6)) - _note_reserve
             _MAX_ROW_H  = int((_avail_rows - (rows - 1) * gap) // rows)
 
-            def _required_card_h(desc_text):
-                if desc_text:
-                    return _ABOVE_DESC + Mm(_est_text_h_mm(desc_text, 12, _inner_w_mm, ls_pt=18)) + _PAD_BOT
-                return _ABOVE_DESC + Mm(8) + _PAD_BOT
+            if card_layout == "horizontal_split":
+                # desc sits in the LEFT zone (~62% of inner width after split + gap)
+                _hs_inner  = card_w - Mm(12)
+                _hs_right  = int(_hs_inner * 0.38)
+                _hs_left_w = (_hs_inner - _hs_right - Mm(4)) / 36000  # in mm
+                _HS_ABOVE  = Mm(8) + Mm(10) + Mm(2)   # pad_t + title(1-line) + gap = 20mm
+                _MIN_CARD_H = Mm(48)
+                def _required_card_h(desc_text):
+                    if desc_text:
+                        return _HS_ABOVE + Mm(_est_text_h_mm(desc_text, 12, _hs_left_w, ls_pt=17)) + _PAD_BOT
+                    return _HS_ABOVE + Mm(8) + _PAD_BOT
+            else:
+                _MIN_CARD_H = Mm(54)
+                def _required_card_h(desc_text):
+                    if desc_text:
+                        return _ABOVE_DESC + Mm(_est_text_h_mm(desc_text, 12, _inner_w_mm, ls_pt=18)) + _PAD_BOT
+                    return _ABOVE_DESC + Mm(8) + _PAD_BOT
 
             row_h = []
             for r in range(rows):
@@ -1651,24 +1815,32 @@ class BrandPptx:
                 _card(slide, l=x, t=y, w=card_w, h=ch,
                       bg=CARD_BGS[i % len(CARD_BGS)])
 
-                # Val — tight hug height
-                _txb(slide, val,
-                     l=x + Mm(6), t=y + Mm(8),
-                     w=card_w - Mm(12), h=_VAL_H,
-                     sz=44, bold=True, align=PP_ALIGN.LEFT, color=vc)
-                # Label — immediately after val with 2mm gap
-                _txb(slide, label,
-                     l=x + Mm(6), t=y + Mm(8) + _VAL_H + Mm(2),
-                     w=card_w - Mm(12), h=_LABEL_H,
-                     sz=14, bold=True, color=BT.NEUTRAL_900_HEX)
-                if desc:
-                    # Desc spans remaining space; bottom-aligned so text sits
-                    # flush above the card's bottom margin regardless of length.
-                    _txb(slide, desc,
-                         l=x + Mm(6), t=y + _ABOVE_DESC,
-                         w=card_w - Mm(12), h=ch - _ABOVE_DESC - _PAD_BOT,
-                         sz=12, color=BT.NEUTRAL_400_HEX, ls_pt=18,
-                         valign=MSO_ANCHOR.BOTTOM)
+                if card_layout == "horizontal_split":
+                    _render_card_inner(
+                        slide, "horizontal_split", x, y, card_w, ch,
+                        {"metric": val, "title": label, "body": desc,
+                         "metric_sz": 44, "title_sz": 14, "body_sz": 12},
+                        vc, body_color=BT.NEUTRAL_400_HEX,
+                        pad_s=Mm(6), pad_t=Mm(8))
+                else:
+                    # Val — tight hug height
+                    _txb(slide, val,
+                         l=x + Mm(6), t=y + Mm(8),
+                         w=card_w - Mm(12), h=_VAL_H,
+                         sz=44, bold=True, align=PP_ALIGN.LEFT, color=vc)
+                    # Label — immediately after val with 2mm gap
+                    _txb(slide, label,
+                         l=x + Mm(6), t=y + Mm(8) + _VAL_H + Mm(2),
+                         w=card_w - Mm(12), h=_LABEL_H,
+                         sz=14, bold=True, color=BT.NEUTRAL_900_HEX)
+                    if desc:
+                        # Desc spans remaining space; bottom-aligned so text sits
+                        # flush above the card's bottom margin regardless of length.
+                        _txb(slide, desc,
+                             l=x + Mm(6), t=y + _ABOVE_DESC,
+                             w=card_w - Mm(12), h=ch - _ABOVE_DESC - _PAD_BOT,
+                             sz=12, color=BT.NEUTRAL_400_HEX, ls_pt=18,
+                             valign=MSO_ANCHOR.BOTTOM)
 
         elif use_color:
             # ── 2-ROW colorful layout (5-6 items) — content-adaptive row height ──
@@ -2993,6 +3165,12 @@ class BrandPptx:
             bg        = card_colors[i % 4]
             acc       = accent_colors[i % 4]
             _card(slide, l=x, t=card_top, w=C4_W, h=card_h, bg=bg)
+
+            layout = c.get("layout", "vertical_stack")
+            if layout != "vertical_stack":
+                _render_card_inner(slide, layout, x, card_top, C4_W, card_h,
+                                   c, acc, pad_s=Mm(4), pad_t=Mm(5))
+                continue
 
             inner_l = x + Mm(4)
             inner_w = C4_W - Mm(8)
