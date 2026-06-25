@@ -35,6 +35,11 @@ except (FileNotFoundError, ValueError):
 _vm  = _C.get("visual_mode", {})
 _cr  = _C.get("card_rules",  {})
 
+# Global theme mode: "light" → dividers use light gradient; "dark" → solid green.
+# UI layer only needs to write brand_config.json visual_mode.theme.mode to toggle.
+# Default: "light"
+THEME_MODE: str = _vm.get("theme", {}).get("mode", "light")
+
 # Whether dark (#0E1216) accent cards are allowed at all.
 # Set to False to keep every slide light and airy regardless of script intent.
 DARK_ACCENT_CARDS_ENABLED: bool = _vm.get("dark_accent_cards", {}).get("enabled", True)

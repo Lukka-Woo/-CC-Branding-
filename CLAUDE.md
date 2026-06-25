@@ -208,6 +208,23 @@ doc.save(os.path.join(_DOCS, "output.docx"))
 - 有颜色背景（所有 `*_100` 浅色系、深色卡、任何非白底）：**禁止加边框**
 - 白色背景卡片：可加 `BORDER_DEFAULT_HEX` 灰色细边框
 
+### 版式多样性规则（hard rule）
+
+**同一版式在一套 PPT 中最多出现 2 次。** 超出部分须换用视觉逻辑相近但结构不同的替代版式。
+
+| 超出的版式 | 推荐替代 |
+|---|---|
+| `add_three_cards`（第3次+） | `add_numbered_rows`（编号问题/原因列表）或 `add_accent_rows`（技术规格/数据类型对比） |
+| `add_two_col_slide`（第3次+） | `add_two_col_pills`（分类标签）或 `add_body_slide` |
+| `add_body_slide`（第3次+） | `add_module_grid` 或 `add_big_stats` |
+| `add_big_stats`（第3次+） | `add_timeline` 或 `add_six_cards` |
+
+**例外：** 内容逻辑上要求严格并列对齐（如3个业务模块各自介绍页），同一版式可酌情保留。封面/分隔/结尾页不计入次数。
+
+**实施建议：** 脚本完成后统计各版式调用次数；如有违规，参照替代表修改，并同步调整内容表达粒度。
+
+---
+
 ### 版式选型速查
 
 | 场景 | 推荐版式 |
@@ -220,6 +237,8 @@ doc.save(os.path.join(_DOCS, "output.docx"))
 | 两侧对比 | `add_two_col_slide` |
 | 两侧分类标签 | `add_two_col_pills` |
 | 3 个并列 | `add_three_cards` |
+| **3 个编号问题/原因/缺陷**（替代 three_cards） | `add_numbered_rows` |
+| **3 个数据类型/规格对比**（替代 three_cards） | `add_accent_rows` |
 | 4 或 6 个并列 | `add_six_cards` |
 | **5 个并列** | `add_six_cards` + `intro_text`/`intro_flow` |
 | 核心指标 ≤4 | `add_big_stats`（自动彩色两列） |
@@ -292,16 +311,16 @@ doc.save(os.path.join(_DOCS, "output.docx"))
 
 callout 是页面底部补充说明区块。所有支持 `note=` 的方法：`add_body_slide` / `add_two_col_slide` / `add_big_stats` / `add_timeline` / `add_table_slide`。
 
-| 场景 | style | 背景色 |
+| 场景 | style | 背景 |
 |---|---|---|
 | 通用注解、限制条件 | `"note"`（默认） | 渐变 `#E8F9F3` → `#F8FBE8` |
 | 功能说明 | `"info"` | 同 note |
 | 操作建议 | `"tip"` | 渐变 `#F8FBE8` → `#E8F9F3` |
-| 需注意的条件/例外 | `"warning"` | `#FFF1DF` 橙底 |
-| 数据风险、不可逆操作 | `"danger"` | `#FFF2F2` 红底（慎用） |
+| 需注意的条件/例外 | `"warning"` | 渐变 `#FFF1DF`（浅橙）→ `#F8FBE7`（SECONDARY_100） |
+| 数据风险、不可逆操作 | `"danger"` | `#FFF2F2` 红底纯色（慎用） |
 
-note/info/tip 统一用 primary 绿色胶囊；warning/danger 保留语义色。
-视觉规则：无边框、无左侧装饰线。固定高度 `Mm(12)`，置于内容区底部。
+note/info/tip 用 primary 绿色胶囊；warning 用橙色胶囊（渐变底）；danger 保留纯色红底。
+所有渐变方向：左→右（`angle_deg=0`）。视觉规则：无边框、无左侧装饰线。固定高度 `Mm(12)`，置于内容区底部。
 
 ---
 

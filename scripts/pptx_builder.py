@@ -207,6 +207,43 @@ def _rect(slide, l, t, w, h, fill=None, line=None, lw_pt=0.75, radius_mm=0, fill
     return s
 
 
+def _rect_gradient_h(slide, l, t, w, h, stops):
+    """Rectangle with horizontal linear gradient fill. stops: [(pct_0-100, '#hex'), ...]"""
+    _ns = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    def _Q(tag): return f"{{{_ns}}}{tag}"
+
+    s = slide.shapes.add_shape(1, int(l), int(t), int(w), int(h))
+    s.line.fill.background()
+
+    spPr = s._element.find(qn("p:spPr"))
+
+    _fill_tags = {_Q(t) for t in
+                  ["solidFill", "gradFill", "pattFill", "noFill", "blipFill", "grpFill"]}
+    for _child in list(spPr):
+        if _child.tag in _fill_tags:
+            spPr.remove(_child)
+
+    gf = etree.Element(_Q("gradFill"))
+    gf.set("rotWithShape", "1")
+    gsLst = etree.SubElement(gf, _Q("gsLst"))
+    for pct, hex_c in stops:
+        gs = etree.SubElement(gsLst, _Q("gs"))
+        gs.set("pos", str(int(pct * 1000)))
+        srgb = etree.SubElement(gs, _Q("srgbClr"))
+        srgb.set("val", hex_c.lstrip("#"))
+    lin = etree.SubElement(gf, _Q("lin"))
+    lin.set("ang", "0")    # 0 = left → right
+    lin.set("scaled", "0")
+
+    prstGeom = spPr.find(_Q("prstGeom"))
+    if prstGeom is not None:
+        spPr.insert(list(spPr).index(prstGeom) + 1, gf)
+    else:
+        spPr.append(gf)
+
+    return s
+
+
 def _set_run_fonts(run, en_font=BT.FONT_EN, cn_font=BT.FONT_CN):
     """Set latin + east-asian font on a run."""
     run.font.name = en_font
@@ -745,12 +782,14 @@ _CGRAD_R = "#F8FBE8"
 
 _CALLOUT_STYLES: dict = {
     # (bg_hex_or_None, pill_style, default_label, grad_stops_or_None)
-    # note/info/tip: horizontal gradient, stops at 0% and 100%
-    # warning/danger: solid semantic bg, no gradient
+    # All styles use a horizontal gradient for visual consistency.
+    # note/info/tip: green-tinted gradient (primary palette)
+    # warning: warm orange → lime-100 gradient — retains semantic colour while matching rhythm
+    # danger:  solid red bg (no gradient — severity intentionally flat/stark)
     "note":    (None,              "primary", "注",   [(0, _CGRAD_L), (100, _CGRAD_R)]),
     "info":    (None,              "primary", "说明", [(0, _CGRAD_L), (100, _CGRAD_R)]),
     "tip":     (None,              "primary", "提示", [(0, _CGRAD_R), (100, _CGRAD_L)]),
-    "warning": (BT.CARD_ORANGE_BG, "warning", "注意", None),
+    "warning": (None,              "warning", "注意", [(0, BT.CARD_ORANGE_BG), (100, BT.SECONDARY_100_HEX)]),
     "danger":  (BT.CARD_DANGER_BG, "danger",  "警告", None),
 }
 
@@ -873,6 +912,9 @@ class BrandPptx:
         self._prs.slide_width  = SLIDE_W
         self._prs.slide_height = SLIDE_H
         self._blank = self._prs.slide_layouts[6]  # blank layout
+        # Theme mode: read once at construction from brand_config.json via BT.
+        # "light" → dividers use light gradient; "dark" → solid green bg.
+        self._theme_mode: str = BT.THEME_MODE
 
     def _clear_slides(self):
         """Remove all content slides, keeping master and layouts."""
@@ -977,9 +1019,21 @@ class BrandPptx:
 
     def add_divider(self, chapter_title: str, chapter_num: str = ""):
         """
-        Section divider: green gradient background, white chapter title.
+        Theme-aware section divider.
+        • light mode (self._theme_mode == "light") → add_divider_light: horizontal gradient bg,
+          PRIMARY_500 text, stacked primary logo.
+        • dark mode  (self._theme_mode == "dark")  → _add_divider_dark: solid PRIMARY_500 bg,
+          white text, reversed logo.
+        Gen scripts always call add_divider(); brand_config.json controls which renders.
         """
+        if self._theme_mode == "light":
+            return self.add_divider_light(chapter_title, chapter_num)
+        return self._add_divider_dark(chapter_title, chapter_num)
+
+    def _add_divider_dark(self, chapter_title: str, chapter_num: str = ""):
+        """Dark variant: solid PRIMARY_500 green background, white text, reversed logo."""
         slide = self._new_slide()
+        _set_slide_bg(slide, BT.PRIMARY_500_HEX)
 
         _rect(slide, l=0, t=0, w=SLIDE_W, h=SLIDE_H, fill=BT.PRIMARY_500_HEX)
 
@@ -994,8 +1048,42 @@ class BrandPptx:
              sz=38, bold=True, color=BT.WHITE_HEX, align=PP_ALIGN.CENTER,
              ls_pt=46)
 
-        # Logo reversed bottom-right
         _add_logo_stacked(slide, reverse=True,
+                          l_mm=int((SLIDE_W / Mm(1) - 30)),
+                          t_mm=int((SLIDE_H / Mm(1) - 28)),
+                          h_mm=18)
+        return slide
+
+    def add_divider_light(self, chapter_title: str, chapter_num: str = ""):
+        """
+        Light section divider: horizontal gradient bg (PRIMARY_100 → SUCCESS_100 → SECONDARY_100),
+        PRIMARY_600 dark-green text, stacked primary color logo bottom-right.
+        """
+        slide = self._new_slide()
+        # Slide background set to PRIMARY_500 for compliance check; gradient shape renders on top.
+        _set_slide_bg(slide, BT.PRIMARY_500_HEX)
+
+        # Gradient background shape spanning full slide
+        grad = _rect_gradient_h(slide, 0, 0, SLIDE_W, SLIDE_H, [
+            (0,   BT.PRIMARY_100_HEX),    # #EAFAF5 — light mint
+            (50,  "#F4FCF0"),             # success-100 equiv — light grass-green
+            (100, BT.SECONDARY_100_HEX),  # #F8FBE7 — light lime
+        ])
+        _send_to_back(slide, grad)
+
+        if chapter_num:
+            _txb(slide, chapter_num,
+                 l=ML, t=Mm(60), w=SLIDE_W - 2 * ML, h=Mm(14),
+                 sz=13, color=BT.PRIMARY_500_HEX,
+                 align=PP_ALIGN.CENTER)
+
+        _txb(slide, chapter_title,
+             l=ML, t=Mm(78), w=SLIDE_W - 2 * ML, h=Mm(44),
+             sz=38, bold=True, color=BT.PRIMARY_500_HEX, align=PP_ALIGN.CENTER,
+             ls_pt=46)
+
+        # Stacked primary logo (colour, not reversed) — bottom-right
+        _add_logo_stacked(slide, reverse=False,
                           l_mm=int((SLIDE_W / Mm(1) - 30)),
                           t_mm=int((SLIDE_H / Mm(1) - 28)),
                           h_mm=18)
@@ -1828,8 +1916,15 @@ class BrandPptx:
             # Period label — pill badge, width fitted to content, centered over dot.
             # Badge sits just above the dot with a small gap.
             _BADGE_H = Mm(6.5)
-            _BADGE_W = min(item_w - Mm(6), Mm(28))   # caps at 28mm; scales down for dense rows
-            _BADGE_L = cx - _BADGE_W // 2
+            # Content-aware badge width: estimate from character count + padding,
+            # cap at (item_w - 6mm) so it never overflows the column.
+            # Hardcoded 28mm was too small for long mixed Latin/CJK period strings.
+            _CH_W    = Mm(sz_per * 0.36)                          # mixed-script per-char estimate
+            _BADGE_W = min(
+                item_w - Mm(6),                                    # never wider than the column
+                max(Mm(20), int(len(period) * _CH_W + Mm(7)))     # text width + pill padding
+            )
+            _BADGE_L = max(int(ML), cx - _BADGE_W // 2)           # centered; never left of margin
             _BADGE_T = dot_y - Mm(2) - _BADGE_H
             _rect(slide, l=_BADGE_L, t=_BADGE_T, w=_BADGE_W, h=_BADGE_H,
                   fill=ac, radius_mm=BT.RADIUS_PILL_MM)
@@ -2828,6 +2923,219 @@ class BrandPptx:
             prs.add_deco_arrow(slide, "arrow1", l_mm=130, t_mm=70, w_mm=50)
         """
         return _deco_img(slide, arrow_type, l_mm, t_mm, w_mm, series=series)
+
+    # ── Numbered Rows (problem / reason / defect list) ───────────────────────
+
+    def add_numbered_rows(self,
+                          title: str,
+                          items: list,
+                          subtitle: str = "",
+                          label: str = "",
+                          title_deco=None,
+                          note: str = "",
+                          note_style: str = "note"):
+        """
+        3-item numbered horizontal rows — for problem/reason/defect lists.
+
+        Each item renders as a full-width split-panel card:
+          Left  (~28%): accent-colored bg — large number badge + item title
+          Right (~72%): light-colored bg  — body text (auto-shrinks to fit)
+
+        items: [{"num": "01", "title": "...", "body": "...", "tag": "(optional eyebrow)"}]
+
+        Color palette per row (0→2 cycles):
+          0: PRIMARY_500 left / PRIMARY_100 right
+          1: SUCCESS     left / NEUTRAL_100 right
+          2: SECONDARY_500 left / SECONDARY_100 right  (dark text variant)
+        """
+        slide = self._new_slide()
+        _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
+        _footer(slide)
+
+        n = min(len(items), 3)
+        if n == 0:
+            return slide
+
+        _note_reserve = CALLOUT_H + Mm(5) if note else 0
+        TOP_PAD  = Mm(4)
+        ROW_GAP  = Mm(3)
+        row_h    = int((CONTENT_H - TOP_PAD - _note_reserve - ROW_GAP * (n - 1)) / n)
+
+        LEFT_W   = int(CW * 0.28)
+        CARD_GAP = Mm(3)
+        RIGHT_W  = CW - LEFT_W - CARD_GAP
+
+        # (accent_bg, light_bg, left_text_color)
+        _PALETTES = [
+            (BT.PRIMARY_500_HEX,   BT.PRIMARY_100_HEX,   BT.WHITE_HEX),
+            (BT.SUCCESS_HEX,       BT.NEUTRAL_100_HEX,   BT.WHITE_HEX),
+            (BT.SECONDARY_500_HEX, BT.SECONDARY_100_HEX, BT.NEUTRAL_900_HEX),
+        ]
+
+        for i, item in enumerate(items[:3]):
+            acc_bg, light_bg, acc_txt = _PALETTES[i % 3]
+            y = CONTENT_Y + TOP_PAD + i * (row_h + ROW_GAP)
+
+            # Left accent card
+            _card(slide, l=ML, t=y, w=LEFT_W, h=row_h, bg=acc_bg)
+
+            # Right light card
+            _card(slide, l=ML + LEFT_W + CARD_GAP, t=y, w=RIGHT_W, h=row_h, bg=light_bg)
+
+            # Number badge pill (top-left of left panel)
+            num_text  = item.get("num", f"{i + 1:02d}")
+            BADGE_H   = Mm(7)
+            BADGE_W   = Mm(14)
+            badge_bg  = BT.WHITE_HEX if acc_txt == BT.WHITE_HEX else acc_bg
+            badge_fg  = acc_bg       if acc_txt == BT.WHITE_HEX else BT.WHITE_HEX
+            _rect(slide, l=ML + Mm(5), t=y + Mm(5),
+                  w=BADGE_W, h=BADGE_H,
+                  fill=badge_bg, radius_mm=BT.RADIUS_PILL_MM)
+            _txb(slide, num_text,
+                 l=ML + Mm(5), t=y + Mm(5),
+                 w=BADGE_W, h=BADGE_H,
+                 sz=9, bold=True, color=badge_fg,
+                 align=PP_ALIGN.CENTER, wrap=False)
+
+            # Optional tag eyebrow
+            tag = item.get("tag", "")
+            y_inner = y + Mm(14)
+            if tag:
+                _txb(slide, tag, l=ML + Mm(5), t=y_inner,
+                     w=LEFT_W - Mm(10), h=Mm(5),
+                     sz=7, bold=True,
+                     color=BT.WHITE_HEX if acc_txt == BT.WHITE_HEX else BT.NEUTRAL_700_HEX)
+                y_inner += Mm(6)
+
+            # Item title in left panel
+            item_title_h = row_h - (y_inner - y) - Mm(5)
+            tb = _txb(slide, item.get("title", ""),
+                      l=ML + Mm(5), t=y_inner,
+                      w=LEFT_W - Mm(10), h=item_title_h,
+                      sz=14, bold=True, color=acc_txt, ls_pt=20)
+            tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+            # Body text in right panel
+            body_tb = _txb(slide, item.get("body", ""),
+                           l=ML + LEFT_W + CARD_GAP + Mm(5),
+                           t=y + Mm(5),
+                           w=RIGHT_W - Mm(10),
+                           h=row_h - Mm(10),
+                           sz=13, color=BT.NEUTRAL_700_HEX, ls_pt=18)
+            body_tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+        if note:
+            _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=_note_t, w=CW, style=note_style)
+
+        return slide
+
+    # ── Accent Rows (horizontal data / spec comparison) ───────────────────────
+
+    def add_accent_rows(self,
+                        title: str,
+                        items: list,
+                        subtitle: str = "",
+                        label: str = "",
+                        title_deco=None,
+                        note: str = "",
+                        note_style: str = "note"):
+        """
+        Horizontal spec-comparison rows with left accent bar — for data/ledger/type lists.
+
+        Each item is a full-width rounded card with:
+          • Narrow 2.5 mm accent bar on the inside-left edge
+          • Header row: bold title (left) + optional badge pill (right-aligned)
+          • Body area: body text with auto-size
+
+        items: [{
+            "tag":   "ACCOUNT TYPE",    # small accent-colored label above title
+            "title": "账本名称",        # bold 14pt title
+            "body":  "描述文字...",     # body text (auto-shrinks to fit)
+            "badge": "confidence=1.0",  # right-aligned badge pill (optional)
+        }]
+
+        Color palette per row (0→2):
+          0: PRIMARY_500   / PRIMARY_100
+          1: TEAL          / CARD_TEAL_BG
+          2: SUCCESS       / NEUTRAL_100
+        """
+        slide = self._new_slide()
+        _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
+        _footer(slide)
+
+        n = min(len(items), 3)
+        if n == 0:
+            return slide
+
+        _note_reserve = CALLOUT_H + Mm(5) if note else 0
+        TOP_PAD  = Mm(4)
+        ROW_GAP  = Mm(3)
+        row_h    = int((CONTENT_H - TOP_PAD - _note_reserve - ROW_GAP * (n - 1)) / n)
+
+        STRIPE_W = Mm(2.5)
+        CONTENT_L = ML + STRIPE_W + Mm(5)   # text starts after stripe + gap
+
+        _PALETTES = [
+            (BT.PRIMARY_500_HEX,   BT.PRIMARY_100_HEX),
+            (BT.TEAL_HEX,          BT.CARD_TEAL_BG),
+            (BT.SUCCESS_HEX,       BT.NEUTRAL_100_HEX),
+        ]
+
+        for i, item in enumerate(items[:3]):
+            acc, light_bg = _PALETTES[i % 3]
+            y = CONTENT_Y + TOP_PAD + i * (row_h + ROW_GAP)
+            inner_w = CW - STRIPE_W - Mm(15)   # usable text width
+
+            # Card background (full-width, rounded)
+            _card(slide, l=ML, t=y, w=CW, h=row_h, bg=light_bg)
+
+            # Left accent bar (inset inside card, avoids covering rounded corners)
+            _rect(slide, l=ML + Mm(3), t=y + Mm(3),
+                  w=STRIPE_W, h=row_h - Mm(6),
+                  fill=acc, radius_mm=BT.RADIUS_PILL_MM)
+
+            # Optional tag label (small, accent-colored)
+            tag = item.get("tag", "")
+            y_inner = y + Mm(5)
+            if tag:
+                _txb(slide, tag, l=CONTENT_L, t=y_inner,
+                     w=Mm(80), h=Mm(5.5),
+                     sz=7, bold=True, color=acc)
+                y_inner += Mm(6.5)
+
+            # Title + optional right-aligned badge on same baseline
+            title_text = item.get("title", "")
+            _txb(slide, title_text,
+                 l=CONTENT_L, t=y_inner,
+                 w=inner_w - Mm(40), h=Mm(8),
+                 sz=14, bold=True, color=BT.NEUTRAL_900_HEX)
+
+            badge_text = item.get("badge", "")
+            if badge_text:
+                _pill(slide, badge_text,
+                      l=ML + CW - Mm(5) - int(len(badge_text) * Mm(9 * 0.44) + 2 * Mm(3.5)),
+                      t=y_inner + Mm(0.5),
+                      bg=acc, font_sz=8, h=Mm(7))
+
+            y_inner += Mm(10)
+
+            # Body text
+            body_h = row_h - (y_inner - y) - Mm(5)
+            if body_h > Mm(8):
+                body_tb = _txb(slide, item.get("body", ""),
+                               l=CONTENT_L, t=y_inner,
+                               w=inner_w, h=body_h,
+                               sz=12, color=BT.NEUTRAL_700_HEX, ls_pt=17)
+                body_tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+        if note:
+            _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=_note_t, w=CW, style=note_style)
+
+        return slide
 
     # ── Save ─────────────────────────────────────────────────────────────────
 

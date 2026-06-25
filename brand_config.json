@@ -1,6 +1,10 @@
 {
   "_comment": "品牌行为偏好配置 — 与 tokens.json（设计原子值）分离。此文件控制「品牌元素在何种条件下出现」，由用户/UI 层写入，由 brand_tokens.py 读取。",
   "visual_mode": {
+    "theme": {
+      "_comment": "全局主题模式。\"light\" = 分隔页使用浅色渐变版本；\"dark\" = 使用深绿纯色底版本。UI 层切换只需改此值。",
+      "mode": "light"
+    },
     "dark_accent_cards": {
       "_comment": "是否允许深色强调卡片（#0E1216 底色）出现在卡片类版式中。关闭后所有卡片保持浅色调。",
       "enabled": true
