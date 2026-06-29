@@ -3513,6 +3513,33 @@ class BrandPptx:
 
         return slide
 
+    # ── Component-first slide (add_slide) ────────────────────────────────────
+
+    def add_slide(self, title: str, layout,
+                  label: str = "", subtitle: str = "",
+                  title_deco=None, note=None, slide_label: str = ""):
+        """
+        Render a content slide using a BaseLayout (Grid / Stack / Split) as the
+        main content area.  `note` can be a Callout component or None.
+        """
+        from pptx.util import Mm
+        slide = self._new_slide()
+        _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
+        _footer(slide, layout_label=slide_label)
+
+        note_reserve = CALLOUT_H + Mm(6) if note is not None else 0
+        content_y    = CONTENT_Y + Mm(4)
+        content_h    = CONTENT_H - Mm(4) - note_reserve
+
+        layout.render_pptx(slide, int(ML), int(content_y), int(CW), int(content_h))
+
+        if note is not None:
+            note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            note.render_pptx(slide, int(ML), int(note_t), int(CW), int(CALLOUT_H))
+
+        return slide
+
     # ── Save ─────────────────────────────────────────────────────────────────
 
     def save(self, output_path: str):
