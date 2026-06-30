@@ -645,26 +645,56 @@ def _header(slide, title, subtitle="", label="", title_deco=None):
     title_deco: None | dict — add ONE decorative element below/around the title.
       {"type": "underline"|"circle", "char_start": int, "char_count": int}
       Maximum one decoration per slide. circle renders behind the title text.
+
+    i18n: title accepts str | {"cn": ..., "en": ...}.
+      lang="en"        → display EN string, wider box (CW*0.92), no word-wrap
+      lang="bilingual" → display CN string; EN string fills subtitle slot
+      lang="cn"        → display as-is (str or dict["cn"])
     """
+    import scripts.i18n as _i18n
+    from scripts.i18n import get_cn, get_en, T as _T
+
+    is_en_only   = _i18n.LANG == "en"
+    is_bilingual = _i18n.LANG == "bilingual"
+
+    # Resolve what goes into the title text box
+    if is_en_only:
+        display_title = get_en(title) or _T(title)
+    elif is_bilingual:
+        display_title = get_cn(title) or _T(title)
+    else:
+        display_title = _T(title)
+
+    # EN-only: wider box so longer English phrases fit on one line
+    title_w = CW * 0.92 if is_en_only else CW * 0.82
+
     y_title_mm = 5.5 if not label else 11.0
     y_title    = Mm(y_title_mm)
     if label:
         _txb(slide, label, l=ML, t=Mm(4.5), w=Mm(80), h=Mm(6),
              sz=9, color=BT.PRIMARY_500_HEX)
-    _txb(slide, title, l=ML, t=y_title, w=CW * 0.82, h=Mm(18),
-         sz=26, bold=True, color=BT.NEUTRAL_900_HEX)
+    _txb(slide, display_title, l=ML, t=y_title, w=title_w, h=Mm(18),
+         sz=26, bold=True, color=BT.NEUTRAL_900_HEX,
+         wrap=not is_en_only)   # EN: single-line, no wrap
+
+    # Bilingual: EN from title dict takes the subtitle slot (overrides passed subtitle)
+    if is_bilingual:
+        effective_subtitle = get_en(title) or subtitle
+    else:
+        effective_subtitle = subtitle
+
     if title_deco:
         # Compute anchor bounds so circle can be vertically centered between
         # label-bottom and subtitle-top (equal gap above and below).
-        _anchor_top = (4.5 + 6.0) if label else y_title_mm   # label bottom, or title top
-        _anchor_bot = (27.0 if label else 24.0) if subtitle else (30.0 if label else 25.0)
+        _anchor_top = (4.5 + 6.0) if label else y_title_mm
+        _anchor_bot = (27.0 if label else 24.0) if effective_subtitle else (30.0 if label else 25.0)
         _apply_title_deco(slide, title_deco, y_title_mm=y_title_mm,
                           anchor_top_mm=_anchor_top, anchor_bot_mm=_anchor_bot)
-    if subtitle:
-        _txb(slide, subtitle, l=ML, t=Mm(24 if not label else 27),
+    if effective_subtitle:
+        _txb(slide, effective_subtitle, l=ML, t=Mm(24 if not label else 27),
              w=CW * 0.80, h=Mm(9), sz=12, color=BT.NEUTRAL_400_HEX)
     else:
-        # No subtitle (with or without label): long thin gray divider below title
+        # No subtitle: thin gray divider below title
         _t = Mm(30) if label else Mm(25)
         _rect(slide, l=ML, t=_t, w=CW, h=Mm(0.3),
               fill=BT.NEUTRAL_200_HEX)

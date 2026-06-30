@@ -432,6 +432,97 @@ PRIMARY_500 #3EC99E → SUCCESS_HEX #5CC13C → SECONDARY_500 #C8E13C
 
 ---
 
+## 多语言（i18n）规则
+
+### 语言模式
+
+| 模式 | 说明 |
+|---|---|
+| `"cn"` | **默认**。所有字段按中文渲染，兼容现有全中文脚本 |
+| `"en"` | 全英文 PPT。Header 标题取 `"en"` 字段，文本框更宽（CW×0.92），禁止换行 |
+| `"bilingual"` | 中英对照。Header 主标题显示 CN；title dict 的 `"en"` 自动填入 subtitle 位置；卡片/文本块内 CN 在上、EN 在下 |
+
+### 激活方式（job 脚本第一行）
+
+```python
+from scripts.components import configure
+configure(lang="bilingual")   # "cn" | "en" | "bilingual"
+```
+
+### 文本字段格式
+
+所有组件的文本字段接受 `str`（仅中文）或 `{"cn": ..., "en": ...}`（双语）：
+
+```python
+# 纯字符串 — cn/en 模式均可用，bilingual 时当作 CN 显示
+title = "核心能力矩阵"
+
+# 双语 dict — 三种模式均支持
+title = {"cn": "核心能力矩阵", "en": "Core Capability Matrix"}
+```
+
+**支持双语字段的组件：**
+
+| 组件 | 可传 dict 的字段 |
+|---|---|
+| `Card` | `title` / `body` / `tag` / `metric` / `icon` / `quote` / `attribution` |
+| `TextBlock` | `content` / `bullets` 列表中每项 |
+| `Callout` | `text` |
+| `Stat` | `label` / `desc`（`val` 是数值，不翻译） |
+| `FlowPills` | `items` 列表中每项 |
+
+### Header 的 i18n 行为（hard rule）
+
+```
+lang="cn"        → 渲染传入的字符串或 dict["cn"]，布局不变
+lang="bilingual" → 主标题显示 CN；dict["en"] 自动顶替 subtitle 槽位
+lang="en"        → 主标题显示 dict["en"]；文本框宽 CW×0.92；wrap=False（单行）
+```
+
+**`add_*` 方法的 `title` 参数直接传 dict，无需额外处理：**
+
+```python
+prs.add_three_cards(
+    title={"cn": "核心能力矩阵", "en": "Core Capability Matrix"},
+    label="PLATFORM CAPABILITIES",   # label 始终英文大写，不需要 dict
+    cards=[...]
+)
+```
+
+### 全英文模式标题写法（hard rule）
+
+- 英文标题文本框设定为**禁止换行**，超出会被截断
+- **提炼关键词**，控制在 5-8 个英文单词以内
+- 避免介词堆叠（`of`, `for`, `to` 等冗余词），用名词短语
+- 示例：`"Data Continuity & Recovery"` ✓ / `"How We Ensure Data Is Continuously Available"` ✗
+
+### 双语模式 subtitle 冲突规则
+
+bilingual 模式下，title dict 的 `"en"` **优先**占用 subtitle 槽位。若该页还需要独立 subtitle，需在内容区另行渲染，不通过 `subtitle=` 参数传入。
+
+### 完整 job 脚本示例片段
+
+```python
+from scripts.components import configure
+configure(lang="bilingual")
+
+prs.add_three_cards(
+    title={"cn": "三大核心优势", "en": "Three Core Advantages"},
+    label="KEY DIFFERENTIATORS",
+    cards=[
+        {
+            "color": "primary",
+            "title": {"cn": "实时数据采集", "en": "Real-time Ingestion"},
+            "body":  {"cn": "秒级采集，15 分钟时间桶自动拼接，断网补齐。",
+                      "en": "Second-level sampling with auto backfill on disconnect."},
+        },
+        ...
+    ]
+)
+```
+
+---
+
 ## context.md 三层优先级
 
 ```
@@ -472,6 +563,8 @@ python3 tests/test_compliance.py projects/{name}/docs/output.html --format html
 | AI 自行修改 context.md | 项目提示词由人工维护，AI 只读不写 |
 | 跳过 Step 0 直接开始生成 | 无项目上下文会导致角色/风格/领域偏差 |
 | 在 gen_*.py 中硬编码邮箱、官网、电话 | 应使用 `BT.COMPANY_EMAIL` / `BT.COMPANY_WEBSITE` / `BT.COMPANY_PHONE` |
+| 全英文模式标题写长句/换行 | 文本框 wrap=False，超出会截断；必须提炼关键词控制在 ≤8 词 |
+| bilingual 模式同时传 `subtitle=` 参数 | title dict 的 "en" 已占用 subtitle 槽，两者冲突时 EN 覆盖传入值 |
 
 ---
 
