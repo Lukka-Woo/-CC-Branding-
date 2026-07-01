@@ -28,7 +28,7 @@
 
   @top-right {
     content: string(doc-type);
-    font-family: "Inter", sans-serif;
+    font-family: "Arial", sans-serif;
     font-size: 9pt;
     color: #8A9199;
     padding-top: 4mm;

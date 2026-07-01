@@ -122,7 +122,7 @@ class Card(BaseComponent):
         if has_en_title and en_title_h > Mm(4):
             tb = _txb(slide, en_title, l=inner_l, t=y_off, w=inner_w,
                       h=en_title_h, sz=10, color=EN_TITLE_COLOR,
-                      en_font="Inter", cn_font="Inter")
+                      en_font=BT.FONT_EN, cn_font=BT.FONT_EN)
             try:
                 tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
             except Exception:
@@ -150,7 +150,7 @@ class Card(BaseComponent):
             tb = _txb(slide, en_body_text, l=inner_l, t=y_off + Mm(1), w=inner_w,
                       h=en_body_h, sz=en_sz, color=EN_COLOR,
                       ls_pt=int(en_sz * 1.5),
-                      en_font="Inter", cn_font="Inter")
+                      en_font=BT.FONT_EN, cn_font=BT.FONT_EN)
             try:
                 tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
             except Exception:
@@ -196,7 +196,7 @@ class Card(BaseComponent):
         en_body = get_en(self.body) if is_bilingual() else ""
         en_html = (
             f'<div class="card__body card__body--en" '
-            f'style="color:{EN_COLOR};font-family:Inter,sans-serif;font-size:0.85em">'
+            f'style="color:{EN_COLOR};font-family:Arial,sans-serif;font-size:0.85em">'
             f'{en_body}</div>'
         ) if en_body else ""
         return (

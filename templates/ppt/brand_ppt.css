@@ -59,7 +59,7 @@
 
   /* Typography */
   --font-cn: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-  --font-en: "Inter", "SF Pro Display", system-ui, sans-serif;
+  --font-en: "Arial", "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", monospace;
 
   /* Slide geometry (16:9 at 1333 × 750 reference) */

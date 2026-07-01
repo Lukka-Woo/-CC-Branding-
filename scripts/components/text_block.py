@@ -38,8 +38,8 @@ class TextBlock(BaseComponent):
             ls = round(sz * 1.5)
             kw = dict(sz=sz, color=color, ls_pt=ls)
             if en_mode:
-                kw["en_font"] = "Inter"
-                kw["cn_font"] = "Inter"
+                kw["en_font"] = BT.FONT_EN
+                kw["cn_font"] = BT.FONT_EN
             if "→" in text:
                 _render_content_with_arrows(
                     slide, text, ox, oy, ow, oh,
@@ -95,7 +95,7 @@ class TextBlock(BaseComponent):
                         f"padding:{self.pad_t_mm/10:.1f}rem {self.pad_s_mm/10:.1f}rem;")
 
         def _html_content(text, sz, clr, en_mode=False):
-            font = "Inter,sans-serif" if en_mode else "inherit"
+            font = "Arial,sans-serif" if en_mode else "inherit"
             lines = text.split("\n")
             parts = []
             for line in lines:

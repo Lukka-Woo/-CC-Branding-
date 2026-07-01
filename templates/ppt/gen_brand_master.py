@@ -57,12 +57,12 @@ BRAND_THEME_XML = '''\
     </a:clrScheme>
     <a:fontScheme name="ArktechX Fonts">
       <a:majorFont>
-        <a:latin typeface="Inter"/>
+        <a:latin typeface="Arial"/>
         <a:ea typeface="PingFang SC"/>
         <a:cs typeface=""/>
       </a:majorFont>
       <a:minorFont>
-        <a:latin typeface="Inter"/>
+        <a:latin typeface="Arial"/>
         <a:ea typeface="PingFang SC"/>
         <a:cs typeface=""/>
       </a:minorFont>

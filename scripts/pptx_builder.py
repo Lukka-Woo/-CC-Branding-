@@ -134,6 +134,122 @@ C2_W   = (CW - C2_GAP) // 2
 C3_GAP = Mm(5)
 C3_W   = (CW - 2 * C3_GAP) // 3
 
+# ── Grid layout engine ────────────────────────────────────────────────────────
+# All add_slide() calls use these two gap constants; per-method local ROW_GAPs
+# still exist in legacy add_* methods and are untouched.
+ROW_GAP   = Mm(4)   # vertical gap between rows in a grid preset
+COL_GAP   = Mm(6)   # horizontal gap between columns in a grid preset
+INNER_PAD = Mm(5)   # uniform inner padding inside every container slot
+
+
+def _grid_cols(ax, ay, aw, ah, weights):
+    """Split (ax, ay, aw, ah) into vertical columns by weight ratios.
+    Last column absorbs any rounding remainder so total width = aw exactly.
+    Returns list of (l, t, w, h) per column, left-to-right."""
+    n        = len(weights)
+    usable_w = aw - COL_GAP * (n - 1)
+    total    = sum(weights)
+    slots, cur_x = [], ax
+    for i, wt in enumerate(weights):
+        col_w = int(usable_w * wt / total) if i < n - 1 else ax + aw - cur_x
+        slots.append((cur_x, ay, col_w, ah))
+        cur_x += col_w + COL_GAP
+    return slots
+
+
+def _grid_rows(ax, ay, aw, ah, weights):
+    """Split (ax, ay, aw, ah) into horizontal rows by weight ratios.
+    Last row absorbs any rounding remainder so total height = ah exactly.
+    Returns list of (l, t, w, h) per row, top-to-bottom."""
+    n        = len(weights)
+    usable_h = ah - ROW_GAP * (n - 1)
+    total    = sum(weights)
+    slots, cur_y = [], ay
+    for i, wt in enumerate(weights):
+        row_h = int(usable_h * wt / total) if i < n - 1 else ay + ah - cur_y
+        slots.append((ax, cur_y, aw, row_h))
+        cur_y += row_h + ROW_GAP
+    return slots
+
+
+# ── Preset helpers for compound layouts ──────────────────────────────────────
+def _preset_top_2col(ax, ay, aw, ah):
+    rows = _grid_rows(ax, ay, aw, ah, [1, 2])
+    return [rows[0]] + _grid_cols(ax, rows[1][1], aw, rows[1][3], [1, 1])
+
+
+def _preset_2col_bot(ax, ay, aw, ah):
+    rows = _grid_rows(ax, ay, aw, ah, [2, 1])
+    return _grid_cols(ax, rows[0][1], aw, rows[0][3], [1, 1]) + [rows[1]]
+
+
+def _preset_top_3col(ax, ay, aw, ah):
+    rows = _grid_rows(ax, ay, aw, ah, [1, 2])
+    return [rows[0]] + _grid_cols(ax, rows[1][1], aw, rows[1][3], [1, 1, 1])
+
+
+def _preset_left_2row(ax, ay, aw, ah):
+    col_w   = (aw - COL_GAP) // 2
+    right_l = ax + col_w + COL_GAP
+    right_w = ax + aw - right_l            # absorb rounding
+    return _grid_rows(ax, ay, col_w, ah, [1, 1]) + [(right_l, ay, right_w, ah)]
+
+
+def _preset_2row_right(ax, ay, aw, ah):
+    col_w   = (aw - COL_GAP) // 2
+    right_l = ax + col_w + COL_GAP
+    right_w = ax + aw - right_l
+    return [(ax, ay, col_w, ah)] + _grid_rows(right_l, ay, right_w, ah, [1, 1])
+
+
+# ── Preset registry ───────────────────────────────────────────────────────────
+#
+#  Each callable signature: (ax, ay, aw, ah) → list[(l, t, w, h)]
+#  ax/ay = top-left origin of the content area
+#  aw/ah = available width / height (already excludes header, footer, callout)
+#  Slots are returned in reading order (left→right, top→bottom).
+#
+GRID_PRESETS = {
+    # Single area
+    "full":        lambda ax, ay, aw, ah: [(ax, ay, aw, ah)],
+
+    # Column splits  ─ all same height
+    "2col":        lambda ax, ay, aw, ah: _grid_cols(ax, ay, aw, ah, [1, 1]),
+    "3col":        lambda ax, ay, aw, ah: _grid_cols(ax, ay, aw, ah, [1, 1, 1]),
+
+    # Row splits  ─ all same width
+    "2row":        lambda ax, ay, aw, ah: _grid_rows(ax, ay, aw, ah, [1, 1]),
+    "3row":        lambda ax, ay, aw, ah: _grid_rows(ax, ay, aw, ah, [1, 1, 1]),
+
+    # Full-width top row  +  column bottom rows
+    # slot 0 = top full-width (1/3 h),  slots 1-2 = bottom 2-col (2/3 h)
+    "top_2col":    _preset_top_2col,
+    # slots 0-1 = top 2-col (2/3 h),    slot 2  = bottom full-width (1/3 h)
+    "2col_bot":    _preset_2col_bot,
+    # slot 0 = top full-width (1/3 h),  slots 1-3 = bottom 3-col (2/3 h)
+    "top_3col":    _preset_top_3col,
+
+    # One column subdivided into rows, other column full height
+    # slots 0-1 = left col (2 equal rows),  slot 2  = right col (full height)
+    "left_2row":   _preset_left_2row,
+    # slot 0  = left col (full height),     slots 1-2 = right col (2 equal rows)
+    "2row_right":  _preset_2row_right,
+}
+
+# Expected slot count per preset — used by add_slide() to validate input.
+GRID_SLOT_COUNT = {
+    "full":        1,
+    "2col":        2,
+    "3col":        3,
+    "2row":        2,
+    "3row":        3,
+    "top_2col":    3,
+    "2col_bot":    3,
+    "top_3col":    4,
+    "left_2row":   3,
+    "2row_right":  3,
+}
+
 # Logo (horizontal) dimensions for footer
 _LOGO_H = Mm(7)
 _LOGO_W = int(_LOGO_H * BT.LOGO_HORIZONTAL_ASPECT)
@@ -737,13 +853,15 @@ def _is_numeric_val(s: str) -> bool:
 
 
 def _seq_badge(slide, x, y, seq: int, color: str, size_mm: float = 9):
-    """Pill circle sequence badge (top-right corner of stat cards)."""
+    """Sequence number badge — decorative colored number, no circle background.
+    Uses Alibaba PuHuiTi 2.0 (CN font) for clean sans-serif digits.
+    """
     s = Mm(size_mm)
-    _rect(slide, l=x, t=y, w=s, h=s, fill=color, radius_mm=BT.RADIUS_PILL_MM)
     _txb(slide, f"{seq:02d}",
-         l=x, t=y + Mm(0.5), w=s, h=s - Mm(1),
-         sz=int(size_mm * 0.9), bold=True, color=BT.WHITE_HEX,
-         align=PP_ALIGN.CENTER, wrap=False)
+         l=x, t=y, w=s, h=s,
+         sz=16, bold=True, color=color,
+         align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False,
+         en_font=BT.FONT_CN, cn_font=BT.FONT_CN)
 
 
 def _brand_arrow(slide, x, y, size_mm=5.5, direction="right", style="primary"):
@@ -912,10 +1030,11 @@ def _render_card_inner(slide, layout, x, y, w, h, data, acc_color,
               fill=acc_color, radius_mm=BT.RADIUS_PILL_MM)
         icon_ch = data.get("icon", "")
         if icon_ch:
+            # Full badge box + MIDDLE anchor = true vertical center
             _txb(slide, icon_ch[:2].upper(),
-                 l=inner_l, t=y + pad_t + Mm(2), w=ICON_D, h=ICON_D - Mm(4),
+                 l=inner_l, t=y + pad_t, w=ICON_D, h=ICON_D,
                  sz=10, bold=True, color=BT.WHITE_HEX,
-                 align=PP_ALIGN.CENTER, wrap=False)
+                 align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False)
 
         # Content right of icon (title / tag — narrow zone)
         cnt_x = inner_l + ICON_D + Mm(4)
@@ -1023,10 +1142,11 @@ def _pill(slide, text: str, l: int, t: int,
         pw = max_w
     _rect(slide, l=l, t=t, w=pw, h=h,
           fill=bg, radius_mm=BT.RADIUS_PILL_MM)
-    _txb(slide, text, l=l + PAD_X, t=t + Mm(0.5),
-         w=pw - 2 * PAD_X, h=h - Mm(1),
+    # Full-height box + MIDDLE anchor → text sits in exact vertical center of pill
+    _txb(slide, text, l=l + PAD_X, t=t,
+         w=pw - 2 * PAD_X, h=h,
          sz=font_sz, bold=bold, color=fg,
-         align=PP_ALIGN.CENTER, wrap=False)
+         align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False)
     return pw
 
 
@@ -1053,6 +1173,14 @@ _CALLOUT_STYLES: dict = {
     "danger":  (BT.CARD_DANGER_BG, "danger",  "警告", None),
 }
 
+_CALLOUT_LABELS_EN = {
+    "note":    "Note",
+    "info":    "Info",
+    "tip":     "Tip",
+    "warning": "Warning",
+    "danger":  "Danger",
+}
+
 CALLOUT_H = Mm(12)   # standard callout block height
 
 
@@ -1068,6 +1196,10 @@ def _callout(slide, text: str, l: int, t: int, w: int,
     """
     bg_hex, pill_style, default_label, grad_stops = _CALLOUT_STYLES.get(
         style, _CALLOUT_STYLES["note"])
+    # Use English labels when lang="en" and no explicit label is given
+    import scripts.i18n as _i18n
+    if _i18n.LANG == "en" and label is None:
+        default_label = _CALLOUT_LABELS_EN.get(style, "Note")
     PAD   = Mm(5)
 
     shape = _rect(slide, l=l, t=t, w=w, h=CALLOUT_H,
@@ -1148,6 +1280,1309 @@ def _flow_pills(slide, items: list, x0: int, y0: int, max_w: int,
         cur_y += pill_h + ROW_GAP
 
     return cur_y - ROW_GAP
+
+
+# ── Container renderers ───────────────────────────────────────────────────────
+#
+#  Every renderer has the signature:
+#      _render_ct_*(slide, slot: dict, l, t, w, h) -> None
+#
+#  l/t/w/h are the pre-computed pixel coordinates for this slot.
+#  The renderer owns everything inside that rectangle.
+#  INNER_PAD is applied internally — callers never add extra padding.
+#
+
+def _render_ct_placeholder(slide, slot, l, t, w, h):
+    """Dashed placeholder box — used during drafting or when a type is TBD."""
+    label = slot.get("label", "Placeholder")
+    _card(slide, l=l, t=t, w=w, h=h,
+          bg=BT.NEUTRAL_100_HEX, border=BT.NEUTRAL_200_HEX)
+    _txb(slide, f"[ {label} ]",
+         l=l, t=t + (h - Mm(8)) // 2, w=w, h=Mm(8),
+         sz=11, color=BT.NEUTRAL_400_HEX, align=PP_ALIGN.CENTER)
+
+
+def _render_ct_blank(slide, slot, l, t, w, h):
+    """Empty spacer — no visual output."""
+    pass
+
+
+def _render_ct_text(slide, slot, l, t, w, h):
+    """
+    Text / bullet container.
+
+    slot keys:
+        label   : str               — optional bold section sub-header at top
+        content : str               — free paragraph text
+        bullets : list              — str items, or dicts with "pill"/"section"/"text"
+                                      (same format as add_body_slide bullets)
+        dark    : bool              — black bg + white text (NEUTRAL_900 card, accent label)
+    content and bullets are mutually exclusive; if both are given, bullets wins.
+    """
+    from scripts.i18n import T
+
+    is_dark = slot.get("dark", False)
+    if is_dark:
+        _card(slide, l=l, t=t, w=w, h=h, bg=BT.NEUTRAL_900_HEX)
+        label_color   = BT.SECONDARY_500_HEX
+        content_color = BT.NEUTRAL_200_HEX
+    else:
+        label_color   = BT.NEUTRAL_900_HEX
+        content_color = BT.NEUTRAL_700_HEX
+
+    cur_y   = t + INNER_PAD
+    avail_w = w - 2 * INNER_PAD
+    avail_h = h - 2 * INNER_PAD
+
+    # Optional container sub-header
+    raw_label = slot.get("label", "")
+    if raw_label:
+        _txb(slide, T(raw_label),
+             l=l + INNER_PAD, t=cur_y, w=avail_w, h=Mm(8),
+             sz=12, bold=True, color=label_color, wrap=False)
+        cur_y   += Mm(8) + Mm(4)
+        avail_h -= Mm(8) + Mm(4)
+
+    content = slot.get("content", "")
+    bullets = slot.get("bullets") or []
+
+    if bullets:
+        _has_pills = any(
+            isinstance(b, dict) and (b.get("pill") or b.get("section"))
+            for b in bullets
+        )
+        if not _has_pills:
+            # Fast path: single textbox for a uniform bullet list
+            tb = slide.shapes.add_textbox(
+                int(l + INNER_PAD), int(cur_y), int(avail_w), int(avail_h))
+            tf = tb.text_frame
+            tf.word_wrap = True
+            for i, b in enumerate(bullets):
+                text = T(b) if isinstance(b, str) else T(b.get("text", ""))
+                p    = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+                pPr  = p._p.get_or_add_pPr()
+                lnSpc = etree.SubElement(pPr, qn("a:lnSpc"))
+                etree.SubElement(lnSpc, qn("a:spcPts"), attrib={"val": "2100"})
+                spc_b = etree.SubElement(pPr, qn("a:spcBef"))
+                etree.SubElement(spc_b, qn("a:spcPts"), attrib={"val": "700"})
+                run  = p.add_run()
+                run.text = f"• {text}"
+                run.font.size = Pt(15)
+                run.font.color.rgb = _rgb(content_color)
+                _set_run_fonts(run)
+        else:
+            # Per-element path: mixed pill / section-header / plain bullets
+            BULLET_H = Mm(9)
+            B_GAP    = Mm(2.5)
+            bx       = l + INNER_PAD
+            for b in bullets:
+                if isinstance(b, dict) and b.get("section"):
+                    cur_y += Mm(3)
+                    _rect(slide, l=bx, t=cur_y + Mm(2),
+                          w=Mm(3), h=Mm(5),
+                          fill=BT.PRIMARY_500_HEX, radius_mm=1.0)
+                    _txb(slide, T(b["section"]),
+                         l=bx + Mm(5), t=cur_y, w=avail_w - Mm(5), h=BULLET_H,
+                         sz=12, bold=True, color=BT.PRIMARY_500_HEX)
+                    cur_y += BULLET_H + Mm(3)
+                    continue
+                if isinstance(b, str):
+                    _txb(slide, f"• {T(b)}",
+                         l=bx, t=cur_y, w=avail_w, h=BULLET_H,
+                         sz=15, color=content_color)
+                else:
+                    pill_text = b.get("pill", "")
+                    body_t    = T(b.get("text", ""))
+                    bstyle    = b.get("style", "primary-soft")
+                    ps        = _PILL_STYLES.get(bstyle, _PILL_STYLES["primary-soft"])
+                    tx        = bx
+                    if pill_text:
+                        pw = _pill(slide, T(pill_text), l=bx, t=cur_y + Mm(1),
+                                   bg=ps[0], fg=ps[1], font_sz=9)
+                        tx = bx + pw + Mm(3)
+                    if body_t:
+                        _txb(slide, body_t, l=tx, t=cur_y,
+                             w=avail_w - (tx - bx), h=BULLET_H,
+                             sz=14, color=content_color, ls_pt=20)
+                cur_y += BULLET_H + B_GAP
+
+    elif content:
+        _txb(slide, T(content),
+             l=l + INNER_PAD, t=cur_y, w=avail_w, h=avail_h,
+             sz=15, color=content_color, ls_pt=22, wrap=True)
+
+
+# ── Cards container ───────────────────────────────────────────────────────────
+
+# 6-slot default palette — cycles when a card has no explicit "color" field
+_SLOT_BG  = [BT.PRIMARY_100_HEX, BT.NEUTRAL_100_HEX, BT.SECONDARY_100_HEX,
+             BT.CARD_ORANGE_BG,  BT.CARD_TEAL_BG,    BT.CARD_PURPLE_BG]
+_SLOT_ACC = [BT.PRIMARY_500_HEX, BT.SUCCESS_HEX,     BT.SECONDARY_500_HEX,
+             BT.WARNING_HEX,     BT.TEAL_HEX,         BT.PURPLE_HEX]
+
+
+def _card_slot_color(c: dict, slot_idx: int):
+    """Return (bg, acc, txt, body_txt) for one card dict at a given slot index."""
+    from scripts.components.base import resolve_card_color
+    if c.get("dark"):
+        return (BT.NEUTRAL_900_HEX, BT.SECONDARY_500_HEX,
+                BT.WHITE_HEX,       BT.NEUTRAL_400_HEX)
+    if c.get("danger"):
+        return (BT.CARD_DANGER_BG, BT.DANGER_HEX,
+                BT.NEUTRAL_900_HEX, BT.NEUTRAL_700_HEX)
+    if c.get("color"):
+        bg, acc, txt = resolve_card_color(c["color"])
+        return (bg, acc, txt, BT.NEUTRAL_700_HEX)
+    bg  = _SLOT_BG [slot_idx % 6]
+    acc = _SLOT_ACC[slot_idx % 6]
+    return (bg, acc, BT.NEUTRAL_900_HEX, BT.NEUTRAL_700_HEX)
+
+
+def _draw_card_vs(slide, c: dict, x, y, cw, ch, acc, txt_color, body_color):
+    """Render one vertical_stack card with typography scaled to card height."""
+    from scripts.i18n import T
+    compact  = ch < Mm(70)
+    pad_s    = Mm(4)  if compact else Mm(5)
+    pad_t    = Mm(5)  if compact else Mm(6)
+    title_sz = 13     if compact else 16
+    title_h  = Mm(16) if compact else Mm(24)
+    title_adv= Mm(17) if compact else Mm(25)
+    bar_w    = Mm(20) if compact else Mm(28)
+    bar_h_v  = Mm(0.8)if compact else Mm(1)
+    bar_adv  = Mm(4)  if compact else Mm(5)
+    body_sz  = 11     if compact else 13
+    tag_sz   = 8      if compact else 9
+
+    inner_l = x + pad_s
+    inner_w = cw - 2 * pad_s
+    y_off   = y + pad_t
+
+    tag = T(c.get("tag", ""))
+    if tag:
+        _txb(slide, tag, l=inner_l, t=y_off, w=inner_w, h=Mm(6),
+             sz=tag_sz, bold=True, color=acc)
+        y_off += Mm(7)
+
+    _txb(slide, T(c.get("title", "")),
+         l=inner_l, t=y_off, w=inner_w, h=title_h,
+         sz=title_sz, bold=True, color=txt_color)
+    y_off += title_adv
+
+    _rect(slide, l=inner_l, t=y_off, w=bar_w, h=bar_h_v, fill=acc)
+    y_off += bar_h_v + bar_adv
+
+    body   = T(c.get("body", ""))
+    body_h = ch - (y_off - y) - Mm(8)
+    if body and body_h > Mm(6):
+        tb = _txb(slide, body, l=inner_l, t=y_off, w=inner_w, h=body_h,
+                  sz=body_sz, color=body_color, ls_pt=16)
+        tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+
+def _render_ct_cards(slide, slot: dict, l, t, w, h):
+    """
+    Card grid container.  Auto-selects column/row layout by item count.
+
+    slot keys:
+        items       : list of card dicts (title, body, tag, color, dark, layout)
+        intro_text  : str  — 5-card mode: replaces top-left slot with summary text
+        intro_label : str  — small green label above intro_text
+        intro_flow  : list — pill→arrow→pill chain in the intro slot
+
+    Auto layout rules (per CLAUDE.md):
+        1-3 items  →  1 row × n columns   (three-card style, tall cards)
+        4 items    →  1 row × 4 columns   (four-card style, tighter gap)
+        5 items    →  intro slot + 2 row × 3 col  (requires intro_text or intro_flow)
+        6 items    →  2 rows × 3 columns  (six-card style, seq badges)
+    """
+    items       = slot.get("items") or []
+    n           = len(items)
+    intro_text  = slot.get("intro_text",  "")
+    intro_label = slot.get("intro_label", "")
+    intro_flow  = slot.get("intro_flow")  or []
+    if n == 0:
+        return
+
+    # ── Dark card budget (CLAUDE.md: 0 if <5 cards; max 1 if ≥5) ────────────
+    dark_budget = (BT.MAX_DARK_PER_SLIDE if n >= BT.MIN_CARDS_FOR_DARK else 0
+                   ) if BT.DARK_ACCENT_CARDS_ENABLED else 0
+    dark_used, adj = 0, []
+    for c in items:
+        if c.get("dark") and dark_used < dark_budget:
+            adj.append(c); dark_used += 1
+        elif c.get("dark"):
+            adj.append({k: v for k, v in c.items() if k != "dark"})
+        else:
+            adj.append(c)
+
+    # ── Grid dimensions ───────────────────────────────────────────────────────
+    use_intro   = (bool(intro_text) or bool(intro_flow)) and n == 5
+    slot_offset = 1 if use_intro else 0
+
+    if n <= 3:
+        n_cols, n_rows, col_gap = n, 1, COL_GAP
+    elif n == 4:
+        n_cols, n_rows, col_gap = 4, 1, Mm(4)
+    else:                         # 5 or 6
+        n_cols, n_rows, col_gap = 3, 2, C3_GAP
+
+    PAD_T    = Mm(4)
+    cards_t  = t + PAD_T
+    cards_h  = h - PAD_T
+    card_w   = (w - (n_cols - 1) * col_gap) // n_cols
+    card_h   = ((cards_h - ROW_GAP) // 2) if n_rows == 2 else cards_h
+    show_seq = (n_rows == 2)   # seq badges only on 6-card grid
+
+    # ── Intro slot (5-card balanced layout) ───────────────────────────────────
+    if use_intro:
+        _pad  = Mm(5)
+        _iw   = card_w - 2 * _pad
+        cur_y = cards_t + _pad
+        if intro_label:
+            _txb(slide, intro_label, l=l + _pad, t=cur_y, w=_iw, h=Mm(6),
+                 sz=8, bold=True, color=BT.PRIMARY_500_HEX)
+            cur_y += Mm(8)
+        if intro_text:
+            _txb(slide, intro_text, l=l + _pad, t=cur_y, w=_iw, h=Mm(20),
+                 sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=17)
+            cur_y += Mm(22)
+        if intro_flow:
+            _flow_pills(slide, intro_flow,
+                        x0=l + _pad, y0=cur_y, max_w=_iw, font_sz=9)
+
+    # ── Render cards ──────────────────────────────────────────────────────────
+    for i, c in enumerate(adj):
+        si   = i + slot_offset
+        col  = si % n_cols
+        row  = si // n_cols
+        cx   = l + col * (card_w + col_gap)
+        cy   = cards_t + row * (card_h + ROW_GAP)
+        # Last cell absorbs rounding so cards reach exactly the slot edge
+        cw_i = (l + w - cx)       if col == n_cols - 1 else card_w
+        ch_i = (cards_t + cards_h - cy) if row == n_rows - 1 else card_h
+
+        bg, acc, txt_color, body_color = _card_slot_color(c, si)
+        _card(slide, l=cx, t=cy, w=cw_i, h=ch_i, bg=bg)
+
+        if show_seq:
+            _seq_badge(slide, x=cx + cw_i - Mm(13), y=cy + Mm(4),
+                       seq=i + 1, color=acc)
+
+        inner_layout = c.get("layout", "vertical_stack")
+        if inner_layout != "vertical_stack":
+            _render_card_inner(slide, inner_layout, cx, cy, cw_i, ch_i,
+                               c, acc, txt_color=txt_color,
+                               body_color=body_color,
+                               pad_s=Mm(4), pad_t=Mm(5))
+        else:
+            _draw_card_vs(slide, c, cx, cy, cw_i, ch_i, acc, txt_color, body_color)
+
+
+# ── Strips container ──────────────────────────────────────────────────────────
+
+def _draw_strip_item(slide, item: dict, style: str,
+                     strip_l, cur_y, strip_w, strip_h, idx: int):
+    """
+    Render one strip card at the given coordinates.
+
+    Extracted so that add_strip_list, add_two_panel_strips, and _render_ct_strips
+    all call the same implementation.
+
+    style: "accent" | "numbered" | "tag_left"
+    """
+    from scripts.components.base import resolve_card_color
+    from scripts.i18n import T
+
+    item_title = T(item.get("title", ""))
+    item_body  = T(item.get("body",  ""))
+    item_tag   = T(item.get("tag",   ""))
+    color_key  = item.get("color", "primary")
+    num_label  = item.get("num", f"{idx + 1:02d}")
+    bg, acc, txt = resolve_card_color(color_key)
+
+    is_dark_strip = item.get("dark", False)
+    if is_dark_strip:
+        strip_bg  = BT.NEUTRAL_900_HEX
+        strip_txt = BT.WHITE_HEX
+        strip_acc = BT.SECONDARY_500_HEX   # lime accent for dark strip
+        strip_body_color = BT.NEUTRAL_200_HEX
+    else:
+        strip_bg       = bg
+        strip_txt      = txt
+        strip_acc      = acc
+        strip_body_color = BT.NEUTRAL_700_HEX
+
+    if style == "accent":
+        _card(slide, l=strip_l, t=cur_y, w=strip_w, h=strip_h, bg=strip_bg)
+
+        # Left icon/number indicator — decorative bold number/icon in accent color
+        # Alibaba PuHuiTi 2.0 for clean sans-serif digits; vertically centered
+        ICON_W   = Mm(16)
+        icon_str = T(item.get("icon", "")) or num_label
+        _txb(slide, icon_str,
+             l=strip_l + Mm(2),
+             t=cur_y,
+             w=ICON_W, h=strip_h,
+             sz=20, bold=True, color=strip_acc,
+             align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False,
+             en_font=BT.FONT_CN, cn_font=BT.FONT_CN)
+
+        PAD_L     = Mm(2) + ICON_W + Mm(4)   # shift content right of icon
+        PAD_T     = Mm(4)
+        PAD_R     = Mm(6)
+        content_w = strip_w - PAD_L - PAD_R
+
+        tag_reserve = 0
+        if item_tag:
+            est_tag_w = int(len(item_tag) * Mm(8 * 0.44) + 2 * Mm(3.5))
+            tag_t     = cur_y + (strip_h - Mm(8)) // 2
+            tag_l     = strip_l + strip_w - PAD_R - est_tag_w
+            _pill(slide, item_tag, l=tag_l, t=tag_t,
+                  bg=strip_acc, fg=_pill_fg(strip_acc), font_sz=8, h=Mm(8))
+            tag_reserve = est_tag_w + Mm(4)
+
+        title_h = Mm(8)
+        body_h  = strip_h - PAD_T - title_h - Mm(2) - Mm(3)
+
+        if item_title:
+            _txb(slide, item_title,
+                 l=strip_l + PAD_L, t=cur_y + PAD_T,
+                 w=content_w - tag_reserve, h=title_h,
+                 sz=13, bold=True, color=strip_txt)
+        if item_body and body_h > Mm(4):
+            tb = _txb(slide, item_body,
+                      l=strip_l + PAD_L, t=cur_y + PAD_T + title_h + Mm(2),
+                      w=content_w, h=body_h,
+                      sz=11, color=strip_body_color, ls_pt=16)
+            try:
+                tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            except Exception:
+                pass
+
+    elif style == "numbered":
+        BADGE_D  = Mm(10) if strip_h < Mm(20) else Mm(12)
+        badge_sz = max(7, int(BADGE_D / Mm(1)) - 2)
+        _card(slide, l=strip_l, t=cur_y, w=strip_w, h=strip_h,
+              bg=BT.WHITE_HEX, border=BT.NEUTRAL_200_HEX)
+        badge_l  = strip_l + Mm(5)
+        badge_t  = cur_y + (strip_h - BADGE_D) // 2
+        _rect(slide, l=badge_l, t=badge_t, w=BADGE_D, h=BADGE_D,
+              fill=acc, radius_mm=BT.RADIUS_PILL_MM)
+        # Full badge box + MIDDLE anchor = true vertical center
+        _txb(slide, num_label,
+             l=badge_l, t=badge_t, w=BADGE_D, h=BADGE_D,
+             sz=badge_sz, bold=True, color=BT.WHITE_HEX,
+             align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False,
+             en_font=BT.FONT_CN, cn_font=BT.FONT_CN)
+
+        CONTENT_L = badge_l + BADGE_D + Mm(5)
+        content_w = strip_l + strip_w - CONTENT_L - Mm(5)
+        title_h   = Mm(7)
+        body_h    = strip_h - Mm(4) - title_h - Mm(2) - Mm(3)
+        y_title   = (cur_y + int((strip_h - title_h) // 2)
+                     if not item_body or body_h < Mm(4)
+                     else cur_y + Mm(3))
+
+        if item_title:
+            _txb(slide, item_title,
+                 l=CONTENT_L, t=y_title, w=content_w, h=title_h,
+                 sz=13, bold=True, color=BT.NEUTRAL_900_HEX)
+        if item_body and body_h > Mm(4):
+            tb = _txb(slide, item_body,
+                      l=CONTENT_L, t=y_title + title_h + Mm(2),
+                      w=content_w, h=body_h,
+                      sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+            try:
+                tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            except Exception:
+                pass
+
+    elif style == "tag_left":
+        _card(slide, l=strip_l, t=cur_y, w=strip_w, h=strip_h, bg=bg)
+        TAG_PAD   = Mm(5)
+        tag_label = item_tag or (item_title[:10] if item_title else "")
+        est_tag_w = int(len(tag_label) * Mm(9 * 0.44) + 2 * Mm(4))
+        tag_t     = cur_y + (strip_h - Mm(8)) // 2
+        _pill(slide, tag_label, l=strip_l + TAG_PAD, t=tag_t,
+              bg=acc, fg=_pill_fg(acc), font_sz=9, h=Mm(8))
+
+        CONTENT_L = strip_l + TAG_PAD + est_tag_w + Mm(5)
+        content_w = strip_l + strip_w - CONTENT_L - Mm(5)
+        title_h   = Mm(7)
+        body_h    = strip_h - Mm(4) - title_h - Mm(2) - Mm(3)
+        y_title   = (cur_y + int((strip_h - title_h) // 2)
+                     if not item_body or body_h < Mm(4)
+                     else cur_y + Mm(3))
+
+        if item_title:
+            _txb(slide, item_title,
+                 l=CONTENT_L, t=y_title, w=content_w, h=title_h,
+                 sz=13, bold=True, color=txt)
+        if item_body and body_h > Mm(4):
+            tb = _txb(slide, item_body,
+                      l=CONTENT_L, t=y_title + title_h + Mm(2),
+                      w=content_w, h=body_h,
+                      sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+            try:
+                tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            except Exception:
+                pass
+
+
+def _render_ct_strips(slide, slot: dict, l, t, w, h):
+    """
+    Strip list container — stacked horizontal strip cards filling the slot.
+
+    slot keys:
+        style     : "accent" | "numbered" | "tag_left"   (default "accent")
+        items     : list of strip dicts (title, body, tag, color, num)
+        label     : str — optional bold section sub-header rendered at top
+        panel_bg  : False (default) — no bg
+                    True            — NEUTRAL_100 tray background
+                    "bordered"      — WHITE card + NEUTRAL_200 border
+    """
+    from scripts.i18n import T
+
+    style     = slot.get("style",    "accent")
+    items     = slot.get("items")    or []
+    raw_label = slot.get("label",    "")
+    panel_bg  = slot.get("panel_bg", False)
+    n         = len(items)
+    if n == 0:
+        return
+
+    # ── Panel background (optional visual grouping) ───────────────────────────
+    if panel_bg == "bordered":
+        _card(slide, l=l, t=t, w=w, h=h,
+              bg=BT.WHITE_HEX, border=BT.NEUTRAL_200_HEX)
+    elif panel_bg:
+        _card(slide, l=l, t=t, w=w, h=h, bg=BT.NEUTRAL_100_HEX)
+
+    # Inner padding: generous when panel_bg is present, minimal otherwise
+    PAD = INNER_PAD if panel_bg else Mm(2)
+
+    cur_y   = t + PAD
+    avail_w = w - 2 * PAD
+    avail_h = h - 2 * PAD
+
+    # ── Optional section sub-header ───────────────────────────────────────────
+    if raw_label:
+        _txb(slide, T(raw_label),
+             l=l + PAD, t=cur_y, w=avail_w, h=Mm(8),
+             sz=12, bold=True, color=BT.NEUTRAL_900_HEX, wrap=False)
+        cur_y   += Mm(8) + Mm(4)
+        avail_h -= Mm(8) + Mm(4)
+
+    # ── Strip height: fill available height evenly ────────────────────────────
+    STRIP_GAP = Mm(3)
+    strip_h   = int((avail_h - (n - 1) * STRIP_GAP) // n)
+
+    for idx, item in enumerate(items):
+        _draw_strip_item(slide, item, style, l + PAD, cur_y, avail_w, strip_h, idx)
+        cur_y += strip_h + STRIP_GAP
+
+
+# ── Stats container ───────────────────────────────────────────────────────────
+
+def _draw_stat_card(slide, item: dict, cx, cy, cw, ch,
+                    acc, txt_color, body_color, n_cols: int,
+                    card_layout: str):
+    """
+    Render one stat card with bilingual-aware layout.
+
+    horizontal_split (default):
+      Right zone  — large metric number (Alibaba PuHuiTi, accent colour)
+      Left zone   — [cn_label + en_label (bilingual)] bottom-aligned with metric
+                    [cn_desc  + en_desc  (bilingual)] below, full inner width
+
+    vertical_stack:
+      metric  → cn_label [+ en_label] → separator bar → cn_desc [+ en_desc]
+    """
+    from scripts.i18n import T, get_cn, get_en, is_bilingual
+
+    bilingual = is_bilingual()
+    PAD_S = Mm(5)
+    PAD_T = Mm(6)
+    PAD_B = Mm(5)
+
+    raw_label = item.get("label", "")
+    raw_desc  = item.get("desc",  "")
+    val       = str(item.get("val", ""))
+
+    cn_label = get_cn(raw_label) if bilingual and isinstance(raw_label, dict) else T(raw_label)
+    en_label = get_en(raw_label) if bilingual and isinstance(raw_label, dict) else ""
+    cn_desc  = get_cn(raw_desc)  if bilingual and isinstance(raw_desc, dict)  else T(raw_desc)
+    en_desc  = get_en(raw_desc)  if bilingual and isinstance(raw_desc, dict)  else ""
+
+    inner_l = cx + PAD_S
+    inner_w = cw - 2 * PAD_S
+
+    # ── horizontal_split ──────────────────────────────────────────────────────
+    if card_layout == "horizontal_split":
+        # Metric font size scales with number of columns
+        METRIC_SZ   = {1: 52, 2: 44, 3: 36}.get(n_cols, 40)
+        # Tight box ≈ exact cap-height; MIDDLE anchor centers text precisely
+        METRIC_H    = Mm(int(METRIC_SZ * 0.353) + 1)
+
+        # Title group heights
+        LABEL_SZ    = 14
+        LABEL_H     = Mm(7)
+        EN_LABEL_SZ = 10
+        EN_LABEL_H  = Mm(5)  if en_label else Mm(0)
+        LBL_GAP     = Mm(2)  if en_label else Mm(0)
+        TITLE_GH    = LABEL_H + LBL_GAP + EN_LABEL_H
+
+        # Header row: taller of metric or title group
+        HEADER_H    = max(METRIC_H, TITLE_GH)
+
+        # Right zone width: fraction of inner width
+        RIGHT_FRAC  = {1: 0.22, 2: 0.32, 3: 0.38}.get(n_cols, 0.32)
+        right_w     = int(inner_w * RIGHT_FRAC)
+        left_w      = inner_w - right_w - Mm(4)
+        right_x     = inner_l + left_w + Mm(4)
+
+        header_bot  = cy + PAD_T + HEADER_H
+
+        # ── Metric (right zone, bottom-aligned with header) ────────────────
+        metric_t = int(header_bot - METRIC_H)
+        if val:
+            _txb(slide, val,
+                 l=right_x, t=metric_t, w=right_w, h=METRIC_H,
+                 sz=METRIC_SZ, bold=True, color=acc,
+                 align=PP_ALIGN.RIGHT, valign=MSO_ANCHOR.MIDDLE, wrap=False,
+                 en_font=BT.FONT_CN, cn_font=BT.FONT_CN)
+
+        # ── Title group (left zone, bottom-aligned with metric) ────────────
+        lbl_top = int(header_bot - TITLE_GH)
+        if cn_label:
+            _txb(slide, cn_label,
+                 l=inner_l, t=lbl_top, w=left_w, h=LABEL_H,
+                 sz=LABEL_SZ, bold=True, color=txt_color)
+        if en_label:
+            _txb(slide, en_label,
+                 l=inner_l, t=int(lbl_top + LABEL_H + LBL_GAP), w=left_w, h=EN_LABEL_H,
+                 sz=EN_LABEL_SZ, color=BT.NEUTRAL_400_HEX)
+
+        # ── Description block (below header, full inner width) ─────────────
+        desc_t    = int(header_bot + Mm(4))
+        total_desc_h = cy + ch - PAD_B - desc_t
+        if total_desc_h < Mm(4):
+            return
+
+        if cn_desc and en_desc:
+            cn_desc_h = int(total_desc_h * 0.56)
+            en_desc_h = total_desc_h - cn_desc_h - Mm(2)
+        else:
+            cn_desc_h = total_desc_h
+            en_desc_h = Mm(0)
+
+        if cn_desc and cn_desc_h > Mm(3):
+            tb = _txb(slide, cn_desc,
+                      l=inner_l, t=desc_t, w=inner_w, h=cn_desc_h,
+                      sz=11, color=body_color, ls_pt=16)
+            try: tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            except Exception: pass
+
+        if en_desc and en_desc_h > Mm(3):
+            tb = _txb(slide, en_desc,
+                      l=inner_l, t=int(desc_t + cn_desc_h + Mm(2)),
+                      w=inner_w, h=en_desc_h,
+                      sz=9, color=BT.NEUTRAL_400_HEX, ls_pt=13)
+            try: tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            except Exception: pass
+
+    # ── vertical_stack ────────────────────────────────────────────────────────
+    else:
+        METRIC_SZ = {1: 52, 2: 44, 3: 36}.get(n_cols, 40)
+        METRIC_H  = Mm(int(METRIC_SZ * 0.353) + 1)
+        LABEL_SZ  = 13
+
+        y_off = cy + PAD_T
+        if val:
+            _txb(slide, val,
+                 l=inner_l, t=y_off, w=inner_w, h=METRIC_H,
+                 sz=METRIC_SZ, bold=True, color=acc,
+                 valign=MSO_ANCHOR.MIDDLE, wrap=False,
+                 en_font=BT.FONT_CN, cn_font=BT.FONT_CN)
+            y_off += METRIC_H + Mm(3)
+
+        if cn_label:
+            _txb(slide, cn_label,
+                 l=inner_l, t=y_off, w=inner_w, h=Mm(7),
+                 sz=LABEL_SZ, bold=True, color=txt_color)
+            y_off += Mm(7)
+        if en_label:
+            _txb(slide, en_label,
+                 l=inner_l, t=y_off, w=inner_w, h=Mm(5),
+                 sz=10, color=BT.NEUTRAL_400_HEX)
+            y_off += Mm(5)
+
+        # Separator bar
+        y_off += Mm(3)
+        _rect(slide, l=inner_l, t=y_off, w=Mm(20), h=Mm(1), fill=acc)
+        y_off += Mm(4)
+
+        desc_h = cy + ch - PAD_B - y_off
+        if cn_desc and desc_h > Mm(4):
+            if en_desc:
+                cn_h = int(desc_h * 0.56)
+                en_h = desc_h - cn_h - Mm(2)
+            else:
+                cn_h, en_h = desc_h, Mm(0)
+            tb = _txb(slide, cn_desc,
+                      l=inner_l, t=y_off, w=inner_w, h=cn_h,
+                      sz=10, color=body_color, ls_pt=15)
+            try: tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            except Exception: pass
+            if en_desc and en_h > Mm(3):
+                tb = _txb(slide, en_desc,
+                          l=inner_l, t=int(y_off + cn_h + Mm(2)), w=inner_w, h=en_h,
+                          sz=9, color=BT.NEUTRAL_400_HEX, ls_pt=13)
+                try: tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                except Exception: pass
+
+
+def _render_ct_stats(slide, slot: dict, l, t, w, h):
+    """
+    KPI metric cards filling the slot.
+
+    slot keys:
+        items       : list of stat dicts
+                        val   : str   — the big number/symbol
+                        label : str | {"cn":..,"en":..} — metric label
+                        desc  : str | {"cn":..,"en":..} — explanation text
+                        color : str   — palette key
+        card_layout : "horizontal_split" (default) | "vertical_stack"
+
+    Auto grid:
+        1 item  → full width, single card
+        2 items → 1 row × 2 cols
+        3 items → 1 row × 3 cols
+        4 items → 2 rows × 2 cols
+
+    Bilingual mode (configure(lang="bilingual")):
+        horizontal_split — cn_label + en_label form a title group bottom-aligned
+                           with the metric; cn_desc + en_desc fill below.
+        vertical_stack   — stacked: metric → cn_label → en_label → bar → cn_desc → en_desc
+    """
+    items       = slot.get("items") or []
+    card_layout = slot.get("card_layout", "horizontal_split")
+    n           = len(items)
+    if n == 0:
+        return
+
+    if n <= 3:
+        n_cols, n_rows = n, 1
+    else:
+        n_cols, n_rows = 2, 2
+
+    cw  = (w - (n_cols - 1) * COL_GAP) // n_cols
+    ch  = (h - (n_rows - 1) * ROW_GAP) // n_rows if n_rows > 1 else h
+
+    for i, item in enumerate(items):
+        col  = i % n_cols
+        row  = i // n_cols
+        cx   = l + col * (cw + COL_GAP)
+        cy   = t + row * (ch + ROW_GAP)
+        cw_i = (l + w - cx) if col == n_cols - 1 else cw
+        ch_i = (t + h - cy) if row == n_rows - 1 else ch
+
+        bg, acc, txt, body_color = _card_slot_color(item, i)
+        _card(slide, l=cx, t=cy, w=cw_i, h=ch_i, bg=bg)
+        _draw_stat_card(slide, item, cx, cy, cw_i, ch_i,
+                        acc, txt, body_color, n_cols, card_layout)
+
+
+# ── Flow container ────────────────────────────────────────────────────────────
+
+def _render_ct_flow(slide, slot: dict, l, t, w, h):
+    """
+    Process / workflow steps.
+
+    slot keys:
+        items     : list of str or {"label": ..., "desc": ...}
+        style     : "pills"    — pill→arrow→pill chain  (default)
+                    "numbered" — numbered circles with label+desc
+        direction : "horizontal" (default) | "vertical"
+    """
+    from scripts.i18n import T
+
+    items     = slot.get("items") or []
+    style     = slot.get("style",     "pills")
+    direction = slot.get("direction", "horizontal")
+    n         = len(items)
+    if n == 0:
+        return
+
+    def _item_label(item):
+        return T(item) if isinstance(item, (str, dict)) and not isinstance(item, dict) \
+               else T(item.get("label", ""))
+
+    def _item_desc(item):
+        return "" if isinstance(item, str) else T(item.get("desc", ""))
+
+    # ── pills ─────────────────────────────────────────────────────────────────
+    if style == "pills":
+        labels = [_item_label(it) for it in items]
+
+        if direction == "horizontal":
+            # Use _flow_pills — auto-wrap if needed
+            _flow_pills(slide, labels,
+                        x0=l + INNER_PAD, y0=t + INNER_PAD,
+                        max_w=w - 2 * INNER_PAD,
+                        pill_h=Mm(9), font_sz=10,
+                        pill_bg=BT.PRIMARY_100_HEX,
+                        pill_fg=BT.PRIMARY_500_HEX,
+                        arr_c=BT.NEUTRAL_400_HEX)
+        else:
+            # Vertical: stacked pills + down arrows
+            PILL_H    = Mm(9)
+            ARR_H     = Mm(7)
+            ITEM_H    = PILL_H + ARR_H
+            pill_w    = w - 2 * INNER_PAD
+            cur_y     = t + INNER_PAD
+            for i, lbl in enumerate(labels):
+                est_pw = min(pill_w, int(len(lbl) * Mm(10 * 0.44) + 2 * Mm(5)))
+                _pill(slide, lbl,
+                      l=l + INNER_PAD, t=cur_y,
+                      bg=BT.PRIMARY_100_HEX, fg=BT.PRIMARY_500_HEX,
+                      font_sz=10, h=PILL_H, w=est_pw)
+                cur_y += PILL_H
+                if i < n - 1:
+                    _txb(slide, "↓",
+                         l=l + INNER_PAD, t=cur_y,
+                         w=Mm(10), h=ARR_H,
+                         sz=11, color=BT.NEUTRAL_400_HEX,
+                         align=PP_ALIGN.CENTER)
+                    cur_y += ARR_H
+
+    # ── numbered ──────────────────────────────────────────────────────────────
+    elif style == "numbered":
+        BADGE_D = Mm(12)
+
+        if direction == "horizontal":
+            # Horizontal: evenly spaced columns, badge on top + title + desc below
+            item_w  = (w - (n - 1) * COL_GAP) // n
+            item_h  = h
+            ACC_COLORS = [_SLOT_ACC[i % 6] for i in range(n)]
+
+            for i, item in enumerate(items):
+                ix = l + i * (item_w + COL_GAP)
+                # Badge circle
+                badge_l = ix + (item_w - BADGE_D) // 2
+                _rect(slide, l=badge_l, t=t, w=BADGE_D, h=BADGE_D,
+                      fill=ACC_COLORS[i], radius_mm=BT.RADIUS_PILL_MM)
+                # Full badge box + MIDDLE anchor = true vertical center
+                _txb(slide, f"{i+1:02d}",
+                     l=badge_l, t=t, w=BADGE_D, h=BADGE_D,
+                     sz=10, bold=True, color=BT.WHITE_HEX,
+                     align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False,
+                     en_font=BT.FONT_CN, cn_font=BT.FONT_CN)
+
+                # Arrow connector between badges (except last)
+                if i < n - 1:
+                    ax = ix + item_w
+                    _txb(slide, "→",
+                         l=ax, t=t, w=COL_GAP, h=BADGE_D,
+                         sz=9, color=BT.NEUTRAL_400_HEX,
+                         align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False)
+
+                label_y  = t + BADGE_D + Mm(3)
+                label_h  = Mm(8)
+                desc_y   = label_y + label_h + Mm(1)
+                desc_h   = item_h - BADGE_D - Mm(3) - label_h - Mm(1)
+
+                if _item_label(item):
+                    _txb(slide, _item_label(item),
+                         l=ix, t=label_y, w=item_w, h=label_h,
+                         sz=12, bold=True, color=BT.NEUTRAL_900_HEX,
+                         align=PP_ALIGN.CENTER)
+                if _item_desc(item) and desc_h > Mm(4):
+                    tb = _txb(slide, _item_desc(item),
+                              l=ix, t=desc_y, w=item_w, h=desc_h,
+                              sz=10, color=BT.NEUTRAL_700_HEX,
+                              align=PP_ALIGN.CENTER, ls_pt=15)
+                    try:
+                        tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    except Exception:
+                        pass
+
+        else:
+            # Vertical: badge + label on each row, connector line between badges
+            ITEM_GAP = Mm(4)
+            item_h   = (h - (n - 1) * ITEM_GAP) // n
+            ACC_COLORS = [_SLOT_ACC[i % 6] for i in range(n)]
+
+            for i, item in enumerate(items):
+                iy = t + i * (item_h + ITEM_GAP)
+                cx = l + BADGE_D + Mm(5)
+                cw = w - BADGE_D - Mm(5)
+                label_h    = Mm(7)
+                desc_avail = item_h - BADGE_D - Mm(2)
+                has_desc   = bool(_item_desc(item)) and desc_avail > Mm(4)
+
+                # Always top-align: badge and label both start at item top
+                badge_t = iy
+                lbl_y   = iy + int((BADGE_D - label_h) // 2)   # vertically center label within badge height
+                if has_desc:
+                    desc_y = iy + BADGE_D + Mm(2)
+                    desc_h = iy + item_h - desc_y
+                else:
+                    desc_y = desc_h = 0
+
+                _rect(slide, l=l, t=badge_t, w=BADGE_D, h=BADGE_D,
+                      fill=ACC_COLORS[i], radius_mm=BT.RADIUS_PILL_MM)
+                _txb(slide, f"{i+1:02d}",
+                     l=l, t=badge_t, w=BADGE_D, h=BADGE_D,
+                     sz=10, bold=True, color=BT.WHITE_HEX,
+                     align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False,
+                     en_font=BT.FONT_CN, cn_font=BT.FONT_CN)
+
+                # Connector: badge bottom → next badge top (formula valid for both cases)
+                if i < n - 1:
+                    line_t = badge_t + BADGE_D
+                    line_h = item_h + ITEM_GAP - BADGE_D
+                    _rect(slide,
+                          l=l + (BADGE_D - Mm(1)) // 2,
+                          t=line_t, w=Mm(1), h=line_h,
+                          fill=BT.NEUTRAL_200_HEX)
+
+                if _item_label(item):
+                    _txb(slide, _item_label(item),
+                         l=cx, t=lbl_y, w=cw, h=label_h,
+                         sz=13, bold=True, color=BT.NEUTRAL_900_HEX)
+                if has_desc:
+                    tb = _txb(slide, _item_desc(item),
+                              l=cx, t=desc_y, w=cw, h=desc_h,
+                              sz=10, color=BT.NEUTRAL_700_HEX, ls_pt=15)
+                    try:
+                        tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    except Exception:
+                        pass
+
+
+# ── Image container ───────────────────────────────────────────────────────────
+
+def _render_ct_image(slide, slot: dict, l, t, w, h):
+    """
+    Image display container.
+
+    slot keys:
+        path    : str  — file path (absolute, or relative to CWD)
+        fit     : "contain" (default) | "cover"
+        caption : str  — optional text shown below the image
+        dark    : bool — dark caption text background
+    """
+    from scripts.i18n import T
+    import os
+
+    path    = slot.get("path", "")
+    fit     = slot.get("fit",  "contain")
+    caption = T(slot.get("caption", ""))
+    is_dark = slot.get("dark", False)
+
+    CAP_H = Mm(8) if caption else Mm(0)
+    img_h = h - CAP_H
+    img_w = w
+
+    if not path or not os.path.exists(path):
+        _render_ct_placeholder(slide,
+                               {"label": slot.get("label", path or "Image")},
+                               l, t, w, h)
+        return
+
+    try:
+        if fit == "contain":
+            # Add with only width first to get auto height
+            pic = slide.shapes.add_picture(path,
+                                           int(l), int(t),
+                                           width=int(img_w))
+            if pic.height > img_h:
+                # Too tall — redo with height constraint
+                sp = pic._element
+                sp.getparent().remove(sp)
+                pic = slide.shapes.add_picture(path,
+                                               int(l), int(t),
+                                               height=int(img_h))
+            # Center horizontally and vertically in the slot
+            pic.left = int(l + (img_w - pic.width)  // 2)
+            pic.top  = int(t + (img_h - pic.height) // 2)
+
+        else:  # cover — fill slot, crop via clipping in position
+            pic = slide.shapes.add_picture(path,
+                                           int(l), int(t),
+                                           width=int(img_w),
+                                           height=int(img_h))
+    except Exception:
+        _render_ct_placeholder(slide,
+                               {"label": f"⚠ {os.path.basename(path)}"},
+                               l, t, w, h)
+        return
+
+    if caption:
+        cap_t = t + h - CAP_H
+        if is_dark:
+            _card(slide, l=l, t=cap_t, w=w, h=CAP_H, bg=BT.NEUTRAL_900_HEX)
+            cap_color = BT.WHITE_HEX
+        else:
+            cap_color = BT.NEUTRAL_400_HEX
+        _txb(slide, caption,
+             l=l + INNER_PAD, t=cap_t + Mm(1),
+             w=w - 2 * INNER_PAD, h=CAP_H - Mm(2),
+             sz=9, color=cap_color, wrap=False)
+
+
+# ── Tags container ────────────────────────────────────────────────────────────
+
+def _render_ct_tags(slide, slot: dict, l, t, w, h):
+    """
+    Horizontally wrapping pill tag cloud.
+
+    slot keys:
+        items  : list of str or {"text": ..., "style": "primary"|"success"|...}
+        label  : str — optional bold section header above tags
+        style  : global default pill style (overridden per-item)
+    """
+    from scripts.i18n import T
+
+    items        = slot.get("items") or []
+    raw_label    = slot.get("label", "")
+    default_style = slot.get("style", "primary-soft")
+    if not items:
+        return
+
+    cur_y   = t + INNER_PAD
+    avail_w = w - 2 * INNER_PAD
+
+    if raw_label:
+        _txb(slide, T(raw_label),
+             l=l + INNER_PAD, t=cur_y, w=avail_w, h=Mm(7),
+             sz=11, bold=True, color=BT.NEUTRAL_900_HEX, wrap=False)
+        cur_y += Mm(7) + Mm(4)
+
+    PILL_H = Mm(9)
+    H_GAP  = Mm(3)
+    V_GAP  = Mm(3)
+    px     = l + INNER_PAD
+
+    for item in items:
+        if isinstance(item, str):
+            text  = T(item)
+            pstyle = default_style
+        else:
+            text  = T(item.get("text", ""))
+            pstyle = item.get("style", default_style)
+
+        ps = _PILL_STYLES.get(pstyle, _PILL_STYLES.get("primary-soft",
+             (BT.PRIMARY_100_HEX, BT.PRIMARY_500_HEX)))
+        est_pw = int(len(text) * Mm(10 * 0.44) + 2 * Mm(4.5))
+
+        # Wrap to next row if needed
+        if px + est_pw > l + w - INNER_PAD and px > l + INNER_PAD:
+            px     = l + INNER_PAD
+            cur_y += PILL_H + V_GAP
+
+        if cur_y + PILL_H > t + h:
+            break
+
+        pw = _pill(slide, text, l=px, t=cur_y,
+                   bg=ps[0], fg=ps[1], font_sz=10, h=PILL_H)
+        px += pw + H_GAP
+
+
+def _render_ct_table(slide, slot: dict, l, t, w, h):
+    """
+    Compact data table container.
+
+    slot keys:
+        headers : list[str]          — column headers (optional)
+        rows    : list[list[str]]    — data rows
+        label   : str                — small section label above table
+        col_widths : list[float]     — relative column widths, e.g. [2,1,1]
+    """
+    from scripts.i18n import T
+
+    headers    = slot.get("headers") or []
+    rows       = slot.get("rows") or []
+    raw_label  = slot.get("label", "")
+    col_ratios = slot.get("col_widths") or []
+
+    cur_y   = t + INNER_PAD
+    avail_w = w - 2 * INNER_PAD
+
+    if raw_label:
+        _txb(slide, T(raw_label),
+             l=l + INNER_PAD, t=cur_y, w=avail_w, h=Mm(6),
+             sz=9, bold=True, color=BT.PRIMARY_500_HEX, wrap=False)
+        cur_y += Mm(6) + Mm(2)
+
+    n_cols = max(len(headers), max((len(r) for r in rows), default=0))
+    if n_cols == 0:
+        return
+
+    # Compute column widths
+    if col_ratios and len(col_ratios) >= n_cols:
+        total = sum(col_ratios[:n_cols])
+        col_ws = [int(avail_w * r / total) for r in col_ratios[:n_cols]]
+    else:
+        col_ws = [avail_w // n_cols] * n_cols
+    # Correct rounding
+    col_ws[-1] = avail_w - sum(col_ws[:-1])
+
+    ROW_H  = Mm(8)
+    PAD_X  = Mm(2)
+
+    # Header row
+    if headers:
+        cx = l + INNER_PAD
+        for ci, hdr in enumerate(headers):
+            _rect(slide, l=cx, t=cur_y, w=col_ws[ci], h=ROW_H,
+                  fill=BT.PRIMARY_500_HEX)
+            _txb(slide, T(str(hdr)),
+                 l=cx + PAD_X, t=cur_y, w=col_ws[ci] - PAD_X, h=ROW_H,
+                 sz=9, bold=True, color=BT.WHITE_HEX,
+                 valign=MSO_ANCHOR.MIDDLE, wrap=False)
+            cx += col_ws[ci]
+        cur_y += ROW_H
+
+    # Data rows
+    for ri, row in enumerate(rows):
+        if cur_y + ROW_H > t + h - INNER_PAD:
+            break
+        row_bg = BT.NEUTRAL_100_HEX if ri % 2 == 0 else BT.WHITE_HEX
+        cx = l + INNER_PAD
+        for ci in range(n_cols):
+            _rect(slide, l=cx, t=cur_y, w=col_ws[ci], h=ROW_H,
+                  fill=row_bg, line=BT.NEUTRAL_200_HEX, lw_pt=0.5)
+            cell = str(row[ci]) if ci < len(row) else ""
+            _txb(slide, T(cell),
+                 l=cx + PAD_X, t=cur_y, w=col_ws[ci] - PAD_X, h=ROW_H,
+                 sz=9, color=BT.NEUTRAL_700_HEX,
+                 valign=MSO_ANCHOR.MIDDLE, wrap=False)
+            cx += col_ws[ci]
+        cur_y += ROW_H
+
+
+def _render_ct_quote(slide, slot: dict, l, t, w, h):
+    """
+    Quote / testimonial block.
+
+    slot keys:
+        quote       : str  — quote body text
+        attribution : str  — source / name line
+        dark        : bool — dark card (default False → primary-100 bg)
+    """
+    from scripts.i18n import T
+
+    quote       = T(slot.get("quote", ""))
+    attribution = T(slot.get("attribution", ""))
+    is_dark     = slot.get("dark", False)
+
+    if is_dark:
+        _card(slide, l=l, t=t, w=w, h=h, bg=BT.NEUTRAL_900_HEX)
+        text_color = BT.NEUTRAL_200_HEX
+        mark_color = BT.PRIMARY_500_HEX
+        attr_color = BT.PRIMARY_500_HEX
+    else:
+        _card(slide, l=l, t=t, w=w, h=h, bg=BT.PRIMARY_100_HEX)
+        text_color = BT.NEUTRAL_900_HEX
+        mark_color = BT.PRIMARY_500_HEX
+        attr_color = BT.PRIMARY_500_HEX
+
+    PAD = INNER_PAD + Mm(1)
+
+    # Decorative opening quotation mark
+    _txb(slide, "“",
+         l=l + PAD, t=t + Mm(1), w=Mm(14), h=Mm(14),
+         sz=40, bold=True, color=mark_color, wrap=False,
+         en_font=BT.FONT_CN, cn_font=BT.FONT_CN)
+
+    # Quote text
+    attr_h = Mm(9) if attribution else 0
+    qt     = t + Mm(10)
+    qh     = h - Mm(10) - attr_h - Mm(2)
+    tb = _txb(slide, quote,
+              l=l + PAD, t=qt, w=w - 2 * PAD, h=qh,
+              sz=13, color=text_color, ls_pt=19)
+    try:
+        tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    except Exception:
+        pass
+
+    # Attribution line
+    if attribution:
+        _txb(slide, f"— {attribution}",
+             l=l + PAD, t=t + h - attr_h - Mm(1), w=w - 2 * PAD, h=attr_h,
+             sz=10, bold=True, color=attr_color, wrap=False)
+
+
+def _render_ct_checklist(slide, slot: dict, l, t, w, h):
+    """
+    Checklist with status icons.
+
+    slot keys:
+        items  : list of str  or  {"text": ..., "status": "done"|"none"|"pending"}
+        label  : str  — optional section header
+    """
+    from scripts.i18n import T
+
+    items     = slot.get("items") or []
+    raw_label = slot.get("label", "")
+
+    cur_y   = t + INNER_PAD
+    avail_w = w - 2 * INNER_PAD
+
+    if raw_label:
+        _txb(slide, T(raw_label),
+             l=l + INNER_PAD, t=cur_y, w=avail_w, h=Mm(6),
+             sz=9, bold=True, color=BT.PRIMARY_500_HEX, wrap=False)
+        cur_y += Mm(6) + Mm(3)
+
+    ROW_H   = Mm(8)
+    DOT_D   = Mm(5)
+    GAP     = Mm(3)
+    V_GAP   = Mm(2)
+
+    STATUS = {
+        "done":    (BT.SUCCESS_HEX,        "✓"),
+        "none":    (BT.DANGER_HEX,         "✗"),
+        "pending": (BT.NEUTRAL_400_HEX,    "○"),
+    }
+
+    for item in items:
+        if cur_y + ROW_H > t + h - INNER_PAD:
+            break
+
+        if isinstance(item, str):
+            text, status = T(item), "done"
+        else:
+            text   = T(item.get("text", ""))
+            status = item.get("status", "done")
+
+        dot_color, icon_ch = STATUS.get(status, STATUS["done"])
+        dot_t = cur_y + (ROW_H - DOT_D) // 2
+
+        # Status dot
+        _rect(slide, l=l + INNER_PAD, t=dot_t, w=DOT_D, h=DOT_D,
+              fill=dot_color, radius_mm=BT.RADIUS_PILL_MM)
+        _txb(slide, icon_ch,
+             l=l + INNER_PAD, t=dot_t, w=DOT_D, h=DOT_D,
+             sz=7, bold=True, color=BT.WHITE_HEX,
+             align=PP_ALIGN.CENTER, valign=MSO_ANCHOR.MIDDLE, wrap=False)
+
+        # Item text
+        _txb(slide, text,
+             l=l + INNER_PAD + DOT_D + GAP, t=cur_y,
+             w=avail_w - DOT_D - GAP, h=ROW_H,
+             sz=11, color=BT.NEUTRAL_700_HEX,
+             valign=MSO_ANCHOR.MIDDLE)
+
+        cur_y += ROW_H + V_GAP
+
+
+def _render_ct_progress(slide, slot: dict, l, t, w, h):
+    """
+    Horizontal progress bars.
+
+    slot keys:
+        items  : list of {"label": str, "value": 0-100, "color": hex (optional)}
+                 or str (label only, value=0)
+        label  : str  — optional section header
+    """
+    from scripts.i18n import T
+
+    items     = slot.get("items") or []
+    raw_label = slot.get("label", "")
+
+    cur_y   = t + INNER_PAD
+    avail_w = w - 2 * INNER_PAD
+
+    if raw_label:
+        _txb(slide, T(raw_label),
+             l=l + INNER_PAD, t=cur_y, w=avail_w, h=Mm(6),
+             sz=9, bold=True, color=BT.PRIMARY_500_HEX, wrap=False)
+        cur_y += Mm(6) + Mm(3)
+
+    n       = len(items)
+    if n == 0:
+        return
+
+    avail_h  = t + h - INNER_PAD - cur_y
+    item_h   = avail_h // n
+
+    LABEL_W  = int(avail_w * 0.36)
+    PCT_W    = Mm(10)
+    BAR_W    = avail_w - LABEL_W - PCT_W - Mm(3)
+    BAR_H    = Mm(4)
+    LBL_H    = Mm(6)
+
+    ACC = [_SLOT_ACC[i % 6] for i in range(n)]
+
+    for i, item in enumerate(items):
+        if isinstance(item, str):
+            lbl, value, color = T(item), 0, ACC[i]
+        else:
+            lbl   = T(item.get("label", ""))
+            value = max(0, min(100, int(item.get("value", 0))))
+            color = item.get("color") or ACC[i]
+
+        mid_y   = cur_y + (item_h - LBL_H) // 2
+        bar_t   = cur_y + (item_h - BAR_H) // 2
+        bar_l   = l + INNER_PAD + LABEL_W + Mm(2)
+
+        # Label
+        _txb(slide, lbl,
+             l=l + INNER_PAD, t=mid_y, w=LABEL_W, h=LBL_H,
+             sz=11, color=BT.NEUTRAL_700_HEX,
+             valign=MSO_ANCHOR.MIDDLE, wrap=False)
+
+        # Track (background)
+        _rect(slide, l=bar_l, t=bar_t, w=BAR_W, h=BAR_H,
+              fill=BT.NEUTRAL_200_HEX, radius_mm=2)
+
+        # Fill
+        fill_w = max(int(BAR_H * 0.8), int(BAR_W * value / 100))
+        _rect(slide, l=bar_l, t=bar_t, w=fill_w, h=BAR_H,
+              fill=color, radius_mm=2)
+
+        # Percentage label
+        _txb(slide, f"{value}%",
+             l=bar_l + BAR_W + Mm(2), t=mid_y, w=PCT_W, h=LBL_H,
+             sz=10, bold=True, color=BT.NEUTRAL_900_HEX,
+             align=PP_ALIGN.RIGHT, valign=MSO_ANCHOR.MIDDLE, wrap=False)
+
+        cur_y += item_h
+
+
+# ── Container dispatcher ─────────────────────────────────────────────────────
+
+_CONTAINER_RENDERERS: dict = {
+    "text":        _render_ct_text,
+    "cards":       _render_ct_cards,
+    "strips":      _render_ct_strips,
+    "stats":       _render_ct_stats,
+    "flow":        _render_ct_flow,
+    "image":       _render_ct_image,
+    "tags":        _render_ct_tags,
+    "table":       _render_ct_table,
+    "quote":       _render_ct_quote,
+    "checklist":   _render_ct_checklist,
+    "progress":    _render_ct_progress,
+    "placeholder": _render_ct_placeholder,
+    "blank":       _render_ct_blank,
+}
+
+
+def _render_container(slide, slot: dict, l: int, t: int, w: int, h: int):
+    """Route a slot dict to the correct container renderer."""
+    ctype    = slot.get("type", "placeholder")
+    renderer = _CONTAINER_RENDERERS.get(ctype)
+    if renderer is None:
+        raise ValueError(
+            f"Unknown container type '{ctype}'. "
+            f"Available: {sorted(_CONTAINER_RENDERERS)}."
+        )
+    renderer(slide, slot, int(l), int(t), int(w), int(h))
 
 
 # ── BrandPptx ─────────────────────────────────────────────────────────────────
@@ -1376,7 +2811,10 @@ class BrandPptx:
         content_h     = CONTENT_H - Mm(4) - _note_reserve
 
         if bullets:
-            _has_pills = any(isinstance(b, dict) and b.get("pill") for b in bullets)
+            _has_pills = any(
+                isinstance(b, dict) and (b.get("pill") or b.get("section"))
+                for b in bullets
+            )
             if not _has_pills:
                 # Fast path: single textbox for uniform bullet list
                 tb = slide.shapes.add_textbox(ML, content_top, CW, content_h)
@@ -1396,15 +2834,32 @@ class BrandPptx:
                     run.font.color.rgb = _rgb(BT.NEUTRAL_700_HEX)
                     _set_run_fonts(run)
             else:
-                # Per-element rendering — supports pill prefix for info hierarchy
-                # Bullet dict format: {"pill": "标签", "text": "内容...", "style": "primary-soft"}
+                # Per-element rendering
+                # Supported dict formats:
+                #   {"section": "Label"}               ← content sub-header (NOT a pill)
+                #   {"pill": "Tag", "text": "..."}     ← pill prefix + body text
+                #   {"pill": "Tag", "text": "", "style": "primary-soft"}  ← pill only
                 BULLET_H = Mm(9)
                 ROW_GAP  = Mm(2.5)
                 cur_y    = content_top
                 for b in bullets:
+                    # ── section sub-header ────────────────────────────────────
+                    if isinstance(b, dict) and b.get("section"):
+                        cur_y += Mm(3)   # extra breathing room before section
+                        _rect(slide,
+                              l=ML, t=cur_y + Mm(2),
+                              w=Mm(3), h=Mm(5),
+                              fill=BT.PRIMARY_500_HEX, radius_mm=1.0)
+                        _txb(slide, b["section"],
+                             l=ML + Mm(5), t=cur_y, w=CW - Mm(5), h=BULLET_H,
+                             sz=12, bold=True, color=BT.PRIMARY_500_HEX)
+                        cur_y += BULLET_H + Mm(3)
+                        continue   # skip standard ROW_GAP
+                    # ── plain string bullet ───────────────────────────────────
                     if isinstance(b, str):
                         _txb(slide, f"• {b}", l=ML, t=cur_y, w=CW, h=BULLET_H,
                              sz=15, color=BT.NEUTRAL_700_HEX)
+                    # ── pill + text ───────────────────────────────────────────
                     else:
                         pill_text = b.get("pill", "")
                         body_text = b.get("text", "")
@@ -1459,16 +2914,15 @@ class BrandPptx:
         ]):
             left_x = ML + i * (C2_W + C2_GAP)
             if col_title:
-                # Tab-style pill: left=primary, right=secondary
-                _cb = BT.PRIMARY_500_HEX if i == 0 else BT.SECONDARY_500_HEX
-                _pill(slide, col_title, l=left_x, t=top,
-                      bg=_cb, fg=_pill_fg(_cb), font_sz=11, h=Mm(9))
-                body_top = top + Mm(13)
+                # Plain bold sub-header — no pill background
+                _txb(slide, col_title, l=left_x, t=top, w=C2_W, h=Mm(9),
+                     sz=13, bold=True, color=BT.NEUTRAL_900_HEX)
+                body_top = top + Mm(12)
             else:
                 body_top = top
             _render_content_with_arrows(
                 slide, content,
-                x=left_x, y=body_top, w=C2_W, h=height - Mm(13),
+                x=left_x, y=body_top, w=C2_W, h=height - Mm(12),
                 sz=14, color=BT.NEUTRAL_700_HEX, ls_pt=22,
                 arrow_style="primary", arrow_size_mm=5.5)
 
@@ -3543,30 +4997,470 @@ class BrandPptx:
 
         return slide
 
-    # ── Component-first slide (add_slide) ────────────────────────────────────
+    # ── Strip List ────────────────────────────────────────────────────────────
 
-    def add_slide(self, title: str, layout,
-                  label: str = "", subtitle: str = "",
-                  title_deco=None, note=None, slide_label: str = ""):
+    def add_strip_list(self,
+                       title: str,
+                       items: list,
+                       strip_style: str = "accent",
+                       subtitle: str = "",
+                       label: str = "",
+                       title_deco=None,
+                       note: str = "",
+                       note_style: str = "note"):
         """
-        Render a content slide using a BaseLayout (Grid / Stack / Split) as the
-        main content area.  `note` can be a Callout component or None.
+        Present items as full-width horizontal strip cards stacked vertically.
+
+        strip_style:
+          "accent"    — light bg + inset vertical accent stripe, title bold, body below,
+                        optional pill tag floats right
+          "numbered"  — white bg + grey border, circle number badge on left, title + body
+          "tag_left"  — light bg, pill tag anchored left, title + body to the right
+
+        Item dict keys:
+          "title"  : str | bilingual dict  (required)
+          "body"   : str | bilingual dict  (optional description)
+          "tag"    : str                   (pill label; accent → floats right,
+                                           tag_left → anchors left as category pill)
+          "color"  : semantic key          ("primary","neutral","secondary","warning",…)
+          "num"    : explicit badge label override for numbered style (default "01","02",…)
         """
-        from pptx.util import Mm
+        from scripts.components.base import resolve_card_color
+        from scripts.i18n import T
+
         slide = self._new_slide()
         _set_slide_bg(slide, BT.WHITE_HEX)
         _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
-        _footer(slide, layout_label=slide_label)
+        _footer(slide)
 
-        note_reserve = CALLOUT_H + Mm(6) if note is not None else 0
-        content_y    = CONTENT_Y + Mm(4)
-        content_h    = CONTENT_H - Mm(4) - note_reserve
+        _note_reserve = CALLOUT_H + Mm(6) if note else 0
+        content_top   = CONTENT_Y + Mm(4)
+        available_h   = CONTENT_H - Mm(4) - _note_reserve
 
-        layout.render_pptx(slide, int(ML), int(content_y), int(CW), int(content_h))
+        n = max(1, len(items))
+        STRIP_GAP = Mm(4)
+        strip_h = min(Mm(22), max(Mm(13), int((available_h - (n - 1) * STRIP_GAP) // n)))
 
-        if note is not None:
+        cur_y = content_top
+        for idx, item in enumerate(items):
+            item_title = T(item.get("title", ""))
+            item_body  = T(item.get("body",  ""))
+            item_tag   = T(item.get("tag",   ""))
+            color_key  = item.get("color", "primary")
+            num_label  = item.get("num", f"{idx + 1:02d}")
+            bg, acc, txt = resolve_card_color(color_key)
+
+            if strip_style == "accent":
+                # ── Card bg ───────────────────────────────────────────────────
+                _card(slide, l=ML, t=cur_y, w=CW, h=strip_h, bg=bg)
+                # Inset vertical accent stripe (stays within card's rounded area)
+                _rect(slide, l=ML + Mm(2), t=cur_y + Mm(2),
+                      w=Mm(3), h=strip_h - Mm(4), fill=acc, radius_mm=0.5)
+
+                PAD_L     = Mm(9)    # stripe(2+3) + gap(4)
+                PAD_T     = Mm(4)
+                PAD_R     = Mm(6)
+                content_w = CW - PAD_L - PAD_R
+
+                # Optional tag pill — float right, vertically centred
+                tag_reserve = 0
+                if item_tag:
+                    est_tag_w   = int(len(item_tag) * Mm(8 * 0.44) + 2 * Mm(3.5))
+                    tag_t       = cur_y + (strip_h - Mm(8)) // 2
+                    tag_l       = ML + CW - PAD_R - est_tag_w
+                    _pill(slide, item_tag, l=tag_l, t=tag_t,
+                          bg=acc, fg=_pill_fg(acc), font_sz=8, h=Mm(8))
+                    tag_reserve = est_tag_w + Mm(4)
+
+                title_h = Mm(8)
+                body_h  = strip_h - PAD_T - title_h - Mm(2) - Mm(3)
+
+                if item_title:
+                    _txb(slide, item_title,
+                         l=ML + PAD_L, t=cur_y + PAD_T,
+                         w=content_w - tag_reserve, h=title_h,
+                         sz=13, bold=True, color=txt)
+                if item_body and body_h > Mm(4):
+                    tb = _txb(slide, item_body,
+                              l=ML + PAD_L, t=cur_y + PAD_T + title_h + Mm(2),
+                              w=content_w, h=body_h,
+                              sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+                    try:
+                        tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    except Exception:
+                        pass
+
+            elif strip_style == "numbered":
+                # ── White card with border ────────────────────────────────────
+                _card(slide, l=ML, t=cur_y, w=CW, h=strip_h,
+                      bg=BT.WHITE_HEX, border=BT.NEUTRAL_200_HEX)
+                # Circle badge
+                BADGE_D = Mm(12)
+                badge_l = ML + Mm(5)
+                badge_t = cur_y + (strip_h - BADGE_D) // 2
+                _rect(slide, l=badge_l, t=badge_t, w=BADGE_D, h=BADGE_D,
+                      fill=acc, radius_mm=BT.RADIUS_PILL_MM)
+                _txb(slide, num_label,
+                     l=badge_l, t=badge_t + Mm(1.5), w=BADGE_D, h=BADGE_D - Mm(3),
+                     sz=10, bold=True, color=BT.WHITE_HEX,
+                     align=PP_ALIGN.CENTER, wrap=False)
+
+                CONTENT_L = badge_l + BADGE_D + Mm(5)
+                content_w = ML + CW - CONTENT_L - Mm(5)
+                title_h   = Mm(7)
+                body_h    = strip_h - Mm(4) - title_h - Mm(2) - Mm(3)
+                y_title   = cur_y + (Mm(3) if item_body else int((strip_h - title_h) // 2))
+
+                if item_title:
+                    _txb(slide, item_title,
+                         l=CONTENT_L, t=y_title, w=content_w, h=title_h,
+                         sz=13, bold=True, color=BT.NEUTRAL_900_HEX)
+                if item_body and body_h > Mm(4):
+                    tb = _txb(slide, item_body,
+                              l=CONTENT_L, t=y_title + title_h + Mm(2),
+                              w=content_w, h=body_h,
+                              sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+                    try:
+                        tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    except Exception:
+                        pass
+
+            elif strip_style == "tag_left":
+                # ── Light bg card with left pill tag ─────────────────────────
+                _card(slide, l=ML, t=cur_y, w=CW, h=strip_h, bg=bg)
+                TAG_PAD   = Mm(5)
+                tag_label = item_tag or (item_title[:10] if item_title else "")
+                est_tag_w = int(len(tag_label) * Mm(9 * 0.44) + 2 * Mm(4))
+                tag_t     = cur_y + (strip_h - Mm(8)) // 2
+                _pill(slide, tag_label, l=ML + TAG_PAD, t=tag_t,
+                      bg=acc, fg=_pill_fg(acc), font_sz=9, h=Mm(8))
+
+                CONTENT_L = ML + TAG_PAD + est_tag_w + Mm(5)
+                content_w = ML + CW - CONTENT_L - Mm(5)
+                title_h   = Mm(7)
+                body_h    = strip_h - Mm(4) - title_h - Mm(2) - Mm(3)
+                y_title   = cur_y + (Mm(3) if item_body else int((strip_h - title_h) // 2))
+
+                if item_title:
+                    _txb(slide, item_title,
+                         l=CONTENT_L, t=y_title, w=content_w, h=title_h,
+                         sz=13, bold=True, color=txt)
+                if item_body and body_h > Mm(4):
+                    tb = _txb(slide, item_body,
+                              l=CONTENT_L, t=y_title + title_h + Mm(2),
+                              w=content_w, h=body_h,
+                              sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+                    try:
+                        tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    except Exception:
+                        pass
+
+            cur_y += strip_h + STRIP_GAP
+
+        if note:
+            _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=_note_t, w=CW, style=note_style)
+
+        return slide
+
+    def add_two_panel_strips(self,
+                              title: str,
+                              left_label: str,
+                              left_items: list,
+                              right_label: str,
+                              right_items: list,
+                              left_style: str = "accent",
+                              right_style: str = "numbered",
+                              subtitle: str = "",
+                              label: str = "",
+                              title_deco=None,
+                              note: str = "",
+                              note_style: str = "note"):
+        """
+        Single slide with two side-by-side panel containers, each holding
+        stacked strip cards.  Ideal for presenting two related lists on
+        one page (e.g. methods + workflow steps).
+
+        left_style / right_style: same values as add_strip_list
+            "accent"    — coloured bg + inset accent stripe, title + body + optional tag
+            "numbered"  — numbered circle badge, title (+ body if strip tall enough)
+            "tag_left"  — left pill tag + title + body
+
+        Item dict keys: same as add_strip_list (title, body, tag, color, num).
+        """
+        from scripts.components.base import resolve_card_color
+        from scripts.i18n import T
+
+        slide = self._new_slide()
+        _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
+        _footer(slide)
+
+        _note_reserve = CALLOUT_H + Mm(6) if note else 0
+
+        # ── Panel layout constants ────────────────────────────────────────────
+        PANEL_PAD = Mm(5)
+        LABEL_H   = Mm(8)
+        LABEL_GAP = Mm(4)
+
+        panel_t = CONTENT_Y + Mm(4)
+        panel_h = CONTENT_H - Mm(8) - _note_reserve
+        # Height available for strips inside each panel (after label + padding)
+        strips_avail = panel_h - PANEL_PAD - LABEL_H - LABEL_GAP - PANEL_PAD
+
+        # ── Calculate per-strip heights ───────────────────────────────────────
+        n_left    = max(1, len(left_items))
+        L_GAP     = Mm(3)
+        l_strip_h = int((strips_avail - (n_left - 1) * L_GAP) // n_left)
+
+        n_right   = max(1, len(right_items))
+        R_GAP     = Mm(3) if n_right <= 3 else Mm(2)
+        r_strip_h = int((strips_avail - (n_right - 1) * R_GAP) // n_right)
+
+        # ── Render each panel ─────────────────────────────────────────────────
+        for side in ("left", "right"):
+            is_left = (side == "left")
+            panel_l  = ML if is_left else ML + C2_W + C2_GAP
+            items    = left_items  if is_left else right_items
+            slabel   = left_label  if is_left else right_label
+            style    = left_style  if is_left else right_style
+            n        = n_left      if is_left else n_right
+            strip_h  = l_strip_h  if is_left else r_strip_h
+            gap      = L_GAP      if is_left else R_GAP
+
+            # Left panel: white bg + subtle border; right panel: NEUTRAL_100 tray bg
+            if is_left:
+                _card(slide, l=panel_l, t=panel_t, w=C2_W, h=panel_h,
+                      bg=BT.WHITE_HEX, border=BT.NEUTRAL_200_HEX)
+            else:
+                _card(slide, l=panel_l, t=panel_t, w=C2_W, h=panel_h,
+                      bg=BT.NEUTRAL_100_HEX, border=None)
+
+            # Section label — plain bold text, no pill
+            _txb(slide, slabel,
+                 l=panel_l + PANEL_PAD,
+                 t=panel_t + PANEL_PAD,
+                 w=C2_W - 2 * PANEL_PAD, h=LABEL_H,
+                 sz=12, bold=True, color=BT.NEUTRAL_900_HEX,
+                 wrap=False)
+
+            strip_w = C2_W - 2 * PANEL_PAD
+            cur_y   = panel_t + PANEL_PAD + LABEL_H + LABEL_GAP
+
+            for idx, item in enumerate(items):
+                item_title = T(item.get("title", ""))
+                item_body  = T(item.get("body",  ""))
+                item_tag   = T(item.get("tag",   ""))
+                color_key  = item.get("color", "primary")
+                num_label  = item.get("num", f"{idx + 1:02d}")
+                bg_col, acc, txt = resolve_card_color(color_key)
+                strip_l = panel_l + PANEL_PAD
+
+                if style == "accent":
+                    _card(slide, l=strip_l, t=cur_y, w=strip_w, h=strip_h, bg=bg_col)
+                    _rect(slide, l=strip_l + Mm(2), t=cur_y + Mm(2),
+                          w=Mm(3), h=strip_h - Mm(4), fill=acc, radius_mm=0.5)
+
+                    PAD_L     = Mm(9)
+                    PAD_T     = Mm(4)
+                    PAD_R     = Mm(5)
+                    content_w = strip_w - PAD_L - PAD_R
+
+                    tag_reserve = 0
+                    if item_tag:
+                        est_tag_w  = int(len(item_tag) * Mm(8 * 0.44) + 2 * Mm(3.5))
+                        tag_t      = cur_y + (strip_h - Mm(8)) // 2
+                        tag_l      = strip_l + strip_w - PAD_R - est_tag_w
+                        _pill(slide, item_tag, l=tag_l, t=tag_t,
+                              bg=acc, fg=_pill_fg(acc), font_sz=8, h=Mm(8))
+                        tag_reserve = est_tag_w + Mm(4)
+
+                    title_h = Mm(8)
+                    body_h  = strip_h - PAD_T - title_h - Mm(2) - Mm(3)
+
+                    if item_title:
+                        _txb(slide, item_title,
+                             l=strip_l + PAD_L, t=cur_y + PAD_T,
+                             w=content_w - tag_reserve, h=title_h,
+                             sz=13, bold=True, color=txt)
+                    if item_body and body_h > Mm(4):
+                        tb = _txb(slide, item_body,
+                                  l=strip_l + PAD_L, t=cur_y + PAD_T + title_h + Mm(2),
+                                  w=content_w, h=body_h,
+                                  sz=11, color=BT.NEUTRAL_700_HEX, ls_pt=16)
+                        try:
+                            tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                        except Exception:
+                            pass
+
+                elif style == "numbered":
+                    # White card on NEUTRAL_100 panel bg → clear visual contrast
+                    _card(slide, l=strip_l, t=cur_y, w=strip_w, h=strip_h,
+                          bg=BT.WHITE_HEX, border=BT.NEUTRAL_200_HEX)
+                    BADGE_D = Mm(10)
+                    badge_l = strip_l + Mm(4)
+                    badge_t = cur_y + (strip_h - BADGE_D) // 2
+                    _rect(slide, l=badge_l, t=badge_t, w=BADGE_D, h=BADGE_D,
+                          fill=BT.PRIMARY_500_HEX, radius_mm=BT.RADIUS_PILL_MM)
+                    _txb(slide, num_label,
+                         l=badge_l, t=badge_t + Mm(1.2), w=BADGE_D, h=BADGE_D - Mm(2.4),
+                         sz=9, bold=True, color=BT.WHITE_HEX,
+                         align=PP_ALIGN.CENTER, wrap=False)
+
+                    CONTENT_L = badge_l + BADGE_D + Mm(4)
+                    content_w = strip_l + strip_w - CONTENT_L - Mm(4)
+                    title_h   = Mm(7)
+                    body_h    = strip_h - Mm(4) - title_h - Mm(2) - Mm(3)
+                    y_title   = (cur_y + int((strip_h - title_h) // 2)
+                                 if not item_body or body_h < Mm(4)
+                                 else cur_y + Mm(3))
+
+                    if item_title:
+                        _txb(slide, item_title,
+                             l=CONTENT_L, t=y_title, w=content_w, h=title_h,
+                             sz=12, bold=True, color=BT.NEUTRAL_900_HEX)
+                    if item_body and body_h > Mm(4):
+                        tb = _txb(slide, item_body,
+                                  l=CONTENT_L, t=y_title + title_h + Mm(2),
+                                  w=content_w, h=body_h,
+                                  sz=10, color=BT.NEUTRAL_700_HEX, ls_pt=15)
+                        try:
+                            tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                        except Exception:
+                            pass
+
+                elif style == "tag_left":
+                    _card(slide, l=strip_l, t=cur_y, w=strip_w, h=strip_h, bg=bg_col)
+                    TAG_PAD   = Mm(4)
+                    tag_label = item_tag or (item_title[:10] if item_title else "")
+                    est_tag_w = int(len(tag_label) * Mm(9 * 0.44) + 2 * Mm(4))
+                    tag_t     = cur_y + (strip_h - Mm(8)) // 2
+                    _pill(slide, tag_label, l=strip_l + TAG_PAD, t=tag_t,
+                          bg=acc, fg=_pill_fg(acc), font_sz=9, h=Mm(8))
+
+                    CONTENT_L = strip_l + TAG_PAD + est_tag_w + Mm(4)
+                    content_w = strip_l + strip_w - CONTENT_L - Mm(4)
+                    title_h   = Mm(7)
+                    body_h    = strip_h - Mm(4) - title_h - Mm(2) - Mm(3)
+                    y_title   = (cur_y + int((strip_h - title_h) // 2)
+                                 if not item_body or body_h < Mm(4)
+                                 else cur_y + Mm(3))
+
+                    if item_title:
+                        _txb(slide, item_title,
+                             l=CONTENT_L, t=y_title, w=content_w, h=title_h,
+                             sz=12, bold=True, color=txt)
+                    if item_body and body_h > Mm(4):
+                        tb = _txb(slide, item_body,
+                                  l=CONTENT_L, t=y_title + title_h + Mm(2),
+                                  w=content_w, h=body_h,
+                                  sz=10, color=BT.NEUTRAL_700_HEX, ls_pt=15)
+                        try:
+                            tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                        except Exception:
+                            pass
+
+                cur_y += strip_h + gap
+
+        if note:
+            _note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=_note_t, w=CW, style=note_style)
+
+        return slide
+
+    # ── Grid-first slide (add_slide) ─────────────────────────────────────────
+
+    def add_slide(self,
+                  title,
+                  label: str = "",
+                  subtitle: str = "",
+                  title_deco=None,
+                  grid: str = "full",
+                  slots: list = None,
+                  note: str = "",
+                  note_style: str = "note",
+                  # ── backwards compat (component-first path) ───────────────
+                  layout=None,
+                  slide_label: str = ""):
+        """
+        Grid-first slide builder.
+
+        Grid mode (new — preferred):
+            grid       — preset name: "full" | "2col" | "3col" | "2row" | "3row"
+                         "top_2col" | "2col_bot" | "top_3col"
+                         "left_2row" | "2row_right"
+            slots      — list of container dicts, one per grid slot,
+                         in reading order (left→right, top→bottom).
+                         Each dict must have "type" plus type-specific keys.
+            note       — optional bottom callout text (auto height, outside grid)
+            note_style — "note" | "tip" | "warning" | "danger"
+
+        Component-first mode (legacy, backwards compat):
+            layout     — a BaseLayout instance (Grid / Stack / Split)
+
+        Container types currently available in slots:
+            "text"        — paragraph + bullet list
+            "placeholder" — dashed box for drafting
+            "blank"       — empty spacer
+            More types added in step 3 (cards, strips, stats, flow, image, tags).
+        """
+        # ── Legacy component-first path ───────────────────────────────────────
+        if layout is not None:
+            from pptx.util import Mm as _Mm
+            slide = self._new_slide()
+            _set_slide_bg(slide, BT.WHITE_HEX)
+            _header(slide, title, subtitle=subtitle, label=label,
+                    title_deco=title_deco)
+            _footer(slide, layout_label=slide_label)
+            note_reserve = CALLOUT_H + _Mm(6) if note else 0
+            cy = CONTENT_Y + _Mm(4)
+            ch = CONTENT_H - _Mm(4) - note_reserve
+            layout.render_pptx(slide, int(ML), int(cy), int(CW), int(ch))
+            if note:
+                nt = CONTENT_Y + CONTENT_H - CALLOUT_H - _Mm(4)
+                if hasattr(note, "render_pptx"):
+                    note.render_pptx(slide, int(ML), int(nt), int(CW),
+                                     int(CALLOUT_H))
+                else:
+                    _callout(slide, str(note), l=ML, t=nt, w=CW,
+                             style=note_style)
+            return slide
+
+        # ── Grid-first path ───────────────────────────────────────────────────
+        if slots is None:
+            slots = []
+
+        if grid not in GRID_PRESETS:
+            raise ValueError(
+                f"Unknown grid preset '{grid}'. "
+                f"Available: {sorted(GRID_PRESETS)}"
+            )
+        expected = GRID_SLOT_COUNT[grid]
+        if len(slots) != expected:
+            raise ValueError(
+                f"Grid '{grid}' expects {expected} slot(s), got {len(slots)}. "
+                f"Slots are in reading order: left→right, top→bottom."
+            )
+
+        slide = self._new_slide()
+        _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, subtitle=subtitle, label=label,
+                title_deco=title_deco)
+        _footer(slide)
+
+        note_reserve = CALLOUT_H + Mm(6) if note else 0
+        ax = ML
+        ay = CONTENT_Y + Mm(4)
+        aw = CW
+        ah = CONTENT_H - Mm(4) - note_reserve
+
+        slot_rects = GRID_PRESETS[grid](ax, ay, aw, ah)
+        for slot_dict, (sl, st, sw, sh) in zip(slots, slot_rects):
+            _render_container(slide, slot_dict, sl, st, sw, sh)
+
+        if note:
             note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
-            note.render_pptx(slide, int(ML), int(note_t), int(CW), int(CALLOUT_H))
+            _callout(slide, note, l=ML, t=note_t, w=CW, style=note_style)
 
         return slide
 

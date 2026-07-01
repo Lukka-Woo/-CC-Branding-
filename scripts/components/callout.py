@@ -44,7 +44,7 @@ class Callout(BaseComponent):
         cn_text = get_cn(self.text) if bilingual else T(self.text)
         en_text = get_en(self.text) if bilingual else ""
         en_html = (
-            f'<span style="color:{EN_COLOR};font-family:Inter,sans-serif;'
+            f'<span style="color:{EN_COLOR};font-family:Arial,sans-serif;'
             f'font-size:0.9em;margin-left:4px">{en_text}</span>'
         ) if en_text else ""
 
