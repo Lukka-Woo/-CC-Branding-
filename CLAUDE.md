@@ -42,7 +42,7 @@ cat projects/{active}/context.md
 若文件不存在：**立即停止**，告知用户先创建（模板见 `reference/setup-guide.md`）。
 若 user prompt 与 context.md 冲突：**user prompt 优先**。
 
-### Step 1 — 扫描 references/
+### Step 1 — 扫描 references/ 并建立内容清单
 
 ```bash
 ls projects/{active}/references/
@@ -50,6 +50,44 @@ ls projects/{active}/references/
 
 PDF 用 `pymupdf`（`fitz`）提取文字和图片；图片视觉阅读；文本直接读取。
 这些文件**不嵌入**输出，用于指导内容策划和文案方向。
+
+**扫描后必须建立内容清单**——在开始任何版式选型前，逐主题记录：
+
+```
+主题 A：N 个内容点
+  1. [完整标题] — [完整说明]
+  2. [完整标题] — [完整说明]
+  ...N. [完整标题] — [完整说明]
+
+主题 B：M 个内容点
+  ...
+```
+
+**红线：内容清单在版式选型之前锁定，不允许事后因"版式只有3个槽"而回头删减内容点。**
+
+### Step 1.5 — 内容优先的版式选型（hard rule）
+
+内容清单建立后，按以下流程为每个主题选版式：
+
+```
+确定内容点数量 N（来自 references，不受版式影响）
+  ↓
+N == 3  → add_three_cards / add_numbered_rows / add_accent_rows
+N == 4  → add_four_cards / add_two_col_slide / add_numbered_rows / add_accent_rows
+N == 5  → add_six_cards + intro_text/intro_flow（均衡布局：intro+2 / 3）
+N == 6  → add_six_cards
+N == 7  → add_module_grid + intro_text/intro_flow（均衡布局）
+N >= 8  → add_module_grid / add_table_slide / add_body_slide（或分页）
+N 不确定 → add_body_slide + pill bullets
+```
+
+**三条禁止：**
+
+| 禁止 | 原因 |
+|---|---|
+| 用 preset slot 数反推"这里有 N 个点" | 应从原文提取 N，再选匹配 preset |
+| 删减原文内容点以适配 preset slot 数量 | 内容完整性优先于版式整洁 |
+| 将不同概念"合并"进一个 slot 以凑数 | 可精简语言，不得合并不同概念 |
 
 ### Step 2 — 读取 media/MANIFEST.md
 
@@ -86,6 +124,75 @@ doc.save(os.path.join(_DOCS, "output.docx"))
 cover  = os.path.join(_MEDIA, "covers", "cover.jpg")
 logo_png = os.path.join(_BRAND, "assets", "logo-horizontal-primary.png")
 ```
+
+---
+
+## 内容与布局分离（content.json）
+
+新建或重构 job 脚本时，**将文案内容与布局代码分离**：
+
+```
+projects/{name}/jobs/
+  content.json    ← 所有幻灯片的文字内容（标题、卡片文案、数据、bullet）
+  gen_*.py        ← 读取 content.json，负责版式调用和布局参数
+```
+
+### content.json 结构
+
+```json
+{
+  "_meta": { "project": "项目名", "deck": "文件名", "lang": "cn", "version": "v1" },
+  "slides": {
+    "cover":    { "title": "...", "subtitle": "...", "tagline": "..." },
+    "toc":      { "title": "...", "description": "...", "chapters": [...] },
+    "div_01":   { "chapter_num": "01", "chapter_title": "...", "subtitle": "..." },
+    "cards_01": { "title": "...", "subtitle": "...", "cards": [...] },
+    "stats":    { "title": "...", "subtitle": "...", "stats": [["值", "标签", "说明"], ...] },
+    "timeline": { "title": "...", "subtitle": "...", "milestones": [["期间", "标题", "说明"], ...] },
+    "closing":  { "slogan_sub": "..." }
+  }
+}
+```
+
+### gen_*.py 读取方式
+
+```python
+import json
+
+with open(os.path.join(os.path.dirname(__file__), "content.json"), encoding="utf-8") as f:
+    S = json.load(f)["slides"]
+
+TOC_ITEMS = [("01", "章节一"), ("02", "章节二")]   # 分隔页共用常量
+
+prs.add_cover(**S["cover"])
+prs.add_toc(**S["toc"], label="TABLE OF CONTENTS")
+prs.add_divider_rich(**S["div_01"], chapter_items=TOC_ITEMS, current_item=0)
+prs.add_three_cards(**S["cards_01"], label="LABEL", title_deco={...})
+
+# stats / milestones 需从 list 转 tuple：
+prs.add_big_stats(
+    title=S["stats"]["title"], subtitle=S["stats"]["subtitle"],
+    stats=[tuple(st) for st in S["stats"]["stats"]],
+    label="...", title_deco={...},
+)
+prs.add_timeline(
+    title=S["timeline"]["title"], subtitle=S["timeline"]["subtitle"],
+    milestones=[tuple(m) for m in S["timeline"]["milestones"]],
+    label="...", title_deco={...},
+)
+```
+
+### 分离原则
+
+| 放入 content.json | 留在 gen_*.py |
+|---|---|
+| 所有中文文案（title / subtitle / body / bullets / tag） | `label`（英文大写，版式身份） |
+| 卡片 / 模块 / 统计数据结构 | `title_deco` 参数 |
+| `dark` 布尔标记（内容语义） | `chapter_items`（TOC 常量） |
+| `featured` 布尔标记 | BT 颜色引用（`BT.COMPANY_WEBSITE` 等） |
+| 双语 `{"cn": ..., "en": ...}` dict | `right_panel` / `slogan_parts`（含 BT 引用） |
+
+**不对旧项目强制回填；新项目和改版从第一个 job 脚本开始遵守。**
 
 ---
 
@@ -565,6 +672,8 @@ python3 tests/test_compliance.py projects/{name}/docs/output.html --format html
 | 在 gen_*.py 中硬编码邮箱、官网、电话 | 应使用 `BT.COMPANY_EMAIL` / `BT.COMPANY_WEBSITE` / `BT.COMPANY_PHONE` |
 | 全英文模式标题写长句/换行 | 文本框 wrap=False，超出会截断；必须提炼关键词控制在 ≤8 词 |
 | bilingual 模式同时传 `subtitle=` 参数 | title dict 的 "en" 已占用 subtitle 槽，两者冲突时 EN 覆盖传入值 |
+| 版式 slot 数量决定内容点数量 | 必须先从 references 确定 N，再选适合 N 的 preset；不得反向截断 |
+| 为了"版面整洁"合并不同概念进同一卡片/条目 | 可精简语言，不可合并概念；内容完整性是红线 |
 
 ---
 
