@@ -93,8 +93,8 @@ DANGER_HEX        = _T["colors"]["semantic"]["danger"]   # #F12D2D
 
 # ── Supplement colors (from tokens.json › colors.supplement) ─────────────────
 BLUE_HEX   = _T["colors"]["supplement"]["blue"]    # #007BFF
-TEAL_HEX   = _T["colors"]["supplement"]["teal"]    # #3CC5CF
-PURPLE_HEX = _T["colors"]["supplement"]["purple"]  # #8255E1
+TEAL_HEX   = _T["colors"]["supplement"]["teal"]     # #3CC5CF
+PURPLE_HEX = _T["colors"]["supplement"]["purple"]   # #8255E1
 ORANGE_HEX = _T["colors"]["supplement"]["orange"]  # #FFB928  (≡ WARNING_HEX)
 
 # ── Card background tints — 语义卡片底色（浅色 tint 规律）────────────────────────
@@ -218,7 +218,7 @@ FONT_CN     = "Alibaba PuHuiTi 2.0"   # 系统家族名（无下划线）
 FONT_CN_FB  = "PingFang SC"           # 降级备用：Mac 自带
 FONT_CN_FB2 = "Microsoft YaHei"       # 降级备用：Windows
 FONT_CN_WEB = "Noto Sans SC"          # 降级备用：Web Google Fonts
-FONT_EN     = "Inter"
+FONT_EN     = "Arial"
 FONT_MONO   = "JetBrains Mono"
 
 # Docx scale sizes (pt)

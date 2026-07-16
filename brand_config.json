@@ -12,7 +12,7 @@
   },
   "card_rules": {
     "_comment": "卡片深色使用策略，与 dark_accent_cards.enabled 联动。enabled=false 时此节全部忽略。",
-    "min_cards_for_dark": 5,
+    "min_cards_for_dark": 4,
     "_comment_min": "当一张幻灯片上的卡片数 < 此值时，强制禁用深色卡片，无论 enabled 是否为 true。",
     "max_dark_per_slide": 1,
     "_comment_max": "允许的最大深色卡片数量（全局上限）。超出部分自动降级为槽位默认颜色。"

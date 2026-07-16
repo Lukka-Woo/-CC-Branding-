@@ -117,7 +117,7 @@
 
   /* Typography */
   --font-cn:    "Alibaba PuHuiTi 2.0", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-  --font-en:    "Inter", "SF Pro", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-en:    "Arial", "Helvetica Neue", Helvetica, sans-serif;
   --font-mono:  "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
 
   --font-weight-light:    300;
