@@ -93,8 +93,8 @@ DANGER_HEX        = _T["colors"]["semantic"]["danger"]   # #F12D2D
 
 # ── Supplement colors (from tokens.json › colors.supplement) ─────────────────
 BLUE_HEX   = _T["colors"]["supplement"]["blue"]    # #007BFF
-TEAL_HEX   = _T["colors"]["supplement"]["teal"]    # #3CC5CF
-PURPLE_HEX = _T["colors"]["supplement"]["purple"]  # #8255E1
+TEAL_HEX   = _T["colors"]["supplement"]["teal"]     # #3CC5CF
+PURPLE_HEX = _T["colors"]["supplement"]["purple"]   # #8255E1
 ORANGE_HEX = _T["colors"]["supplement"]["orange"]  # #FFB928  (≡ WARNING_HEX)
 
 # ── Card background tints — 语义卡片底色（浅色 tint 规律）────────────────────────

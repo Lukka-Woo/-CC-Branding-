@@ -134,6 +134,20 @@ C2_W   = (CW - C2_GAP) // 2
 C3_GAP = Mm(5)
 C3_W   = (CW - 2 * C3_GAP) // 3
 
+# ── Staircase cards: bg → same-family dark title color ────────────────────────
+# Component-private derived values; not in global token system.
+# Contrast ratios verified against WCAG AA Large (≥3:1).
+_STAIR_TITLE_FOR: dict = {
+    BT.PRIMARY_100_HEX:   BT.PRIMARY_600_HEX,   # deep green      ~4.2:1
+    BT.SECONDARY_100_HEX: "#7A9010",             # deep olive      ~3.5:1
+    BT.NEUTRAL_100_HEX:   BT.NEUTRAL_700_HEX,   # deep gray       ~4.6:1
+    BT.CARD_TEAL_BG:      "#1A7A85",             # deep teal       ~3.8:1
+    BT.CARD_PURPLE_BG:    BT.PURPLE_HEX,         # purple          ~4.1:1
+    BT.CARD_ORANGE_BG:    "#B56800",             # deep amber      ~3.9:1
+    BT.CARD_DANGER_BG:    BT.DANGER_HEX,         # danger red      ~3.9:1
+    BT.NEUTRAL_900_HEX:   BT.SECONDARY_500_HEX, # dark card → lime accent
+}
+
 # ── Grid layout engine ────────────────────────────────────────────────────────
 # All add_slide() calls use these two gap constants; per-method local ROW_GAPs
 # still exist in legacy add_* methods and are untouched.
@@ -5457,6 +5471,138 @@ class BrandPptx:
         slot_rects = GRID_PRESETS[grid](ax, ay, aw, ah)
         for slot_dict, (sl, st, sw, sh) in zip(slots, slot_rects):
             _render_container(slide, slot_dict, sl, st, sw, sh)
+
+        if note:
+            note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
+            _callout(slide, note, l=ML, t=note_t, w=CW, style=note_style)
+
+        return slide
+
+    # ── Staircase Cards ───────────────────────────────────────────────────────
+
+    def add_staircase_cards(self,
+                            title: str,
+                            items: List[Dict],
+                            subtitle: str = "",
+                            label: str = "",
+                            title_deco=None,
+                            note: str = "",
+                            note_style: str = "note",
+                            indent_mm: float = 8.0,
+                            card_h_mm: float = 0.0):
+        """
+        Staircase (timeline-variant) card layout.
+
+        Each item descends one step to the right, connected to a vertical axis
+        line via a coloured horizontal connector and a milestone dot.
+
+        items: list of dicts, in top-to-bottom order:
+          {
+            "label":  str,               # short left-axis label (≤4 chars)
+            "title":  str,               # card headline
+            "body":   str,               # card body text
+            "bg":     hex_str,           # card background (use BT.PRIMARY_100_HEX etc.)
+            "accent": hex_str,           # connector line + dot colour
+            "dot":    "solid"|"hollow",  # solid = active/done, hollow = planned
+          }
+
+        Title colour is resolved automatically from _STAIR_TITLE_FOR (bg → dark
+        same-family colour); falls back to NEUTRAL_700 for unmapped backgrounds.
+
+        indent_mm:  per-step horizontal indent (default 8 mm).
+        card_h_mm:  fixed card height in mm; 0 = auto (fills content area evenly).
+        """
+        slide = self._new_slide()
+        _set_slide_bg(slide, BT.WHITE_HEX)
+        _header(slide, title, subtitle=subtitle, label=label, title_deco=title_deco)
+        _footer(slide)
+
+        n = len(items)
+        if n == 0:
+            return slide
+
+        _note_reserve = CALLOUT_H + Mm(6) if note else 0
+        TOP_PAD   = Mm(4)
+        CARD_GAP  = Mm(4)
+        LABEL_W   = Mm(14)    # left axis label column width
+        INDENT    = Mm(indent_mm)
+        DOT_D     = Mm(2)
+
+        avail_h = CONTENT_H - TOP_PAD - _note_reserve
+        if card_h_mm > 0:
+            card_h = Mm(card_h_mm)
+        else:
+            card_h = int((avail_h - CARD_GAP * (n - 1)) / n)
+
+        stair_y    = CONTENT_Y + TOP_PAD
+        axis_x     = ML + LABEL_W + Mm(1)
+        base_card_x = axis_x + Mm(0.5) + Mm(8)   # 8 mm gap between axis and first card
+        axis_h     = n * card_h + (n - 1) * CARD_GAP
+
+        # Vertical axis line
+        _rect(slide, l=axis_x, t=stair_y, w=Mm(0.5), h=axis_h,
+              fill=BT.NEUTRAL_200_HEX)
+
+        for i, lv in enumerate(items):
+            bg     = lv.get("bg",     BT.PRIMARY_100_HEX)
+            accent = lv.get("accent", BT.PRIMARY_500_HEX)
+            dot    = lv.get("dot",    "solid")
+
+            cx = base_card_x + i * INDENT
+            cw = (ML + CW) - cx - Mm(2)
+            cy = stair_y + i * (card_h + CARD_GAP)
+
+            title_color = _STAIR_TITLE_FOR.get(bg, BT.NEUTRAL_700_HEX)
+
+            # Label (right-aligned to axis, vertically centred)
+            _txb(slide, lv.get("label", ""),
+                 l=ML, t=cy + (card_h - Mm(5)) // 2,
+                 w=LABEL_W - Mm(2), h=Mm(5),
+                 sz=9, bold=True, color=BT.NEUTRAL_700_HEX,
+                 align=PP_ALIGN.RIGHT)
+
+            # Horizontal connector: axis → card left edge
+            hline_x = axis_x + Mm(0.5)
+            hline_w = cx - hline_x
+            if hline_w > 0:
+                _rect(slide,
+                      l=hline_x, t=cy + card_h // 2 - Mm(0.3),
+                      w=hline_w, h=Mm(0.6),
+                      fill=accent)
+
+            # Milestone dot (solid = done/active, hollow = planned)
+            dot_x = axis_x + Mm(0.25) - DOT_D // 2
+            dot_y = cy + card_h // 2 - DOT_D // 2
+            if dot == "solid":
+                _rect(slide, l=dot_x, t=dot_y, w=DOT_D, h=DOT_D,
+                      fill=accent, radius_mm=BT.RADIUS_PILL_MM)
+            else:
+                _rect(slide, l=dot_x, t=dot_y, w=DOT_D, h=DOT_D,
+                      fill=BT.WHITE_HEX, line=accent, lw_pt=1.5,
+                      radius_mm=BT.RADIUS_PILL_MM)
+
+            # Card background (coloured bg → no border per brand rules)
+            _rect(slide, l=cx, t=cy, w=cw, h=card_h,
+                  fill=bg, radius_mm=BT.RADIUS_SM_MM)
+
+            PAD_L = Mm(5)
+            PAD_T = Mm(3)
+            inner_w = cw - PAD_L * 2
+
+            # Card title
+            _txb(slide, lv.get("title", ""),
+                 l=cx + PAD_L, t=cy + PAD_T,
+                 w=inner_w, h=Mm(7),
+                 sz=11, bold=True, color=title_color)
+
+            # Card body (auto-shrinks to fit)
+            body_t = cy + PAD_T + Mm(8)
+            body_h = card_h - PAD_T - Mm(8) - Mm(3)
+            tb = _txb(slide, lv.get("body", ""),
+                      l=cx + PAD_L, t=body_t,
+                      w=inner_w, h=body_h,
+                      sz=9, color=BT.NEUTRAL_700_HEX)
+            tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
         if note:
             note_t = CONTENT_Y + CONTENT_H - CALLOUT_H - Mm(4)
