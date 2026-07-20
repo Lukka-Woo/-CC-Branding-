@@ -1,7 +1,22 @@
 {
-  "active": "碳法规情报系统",
+  "active": "产品矩阵简介",
 
   "projects": {
+    "产品矩阵简介": {
+      "name": "ArktechX 产品矩阵简介（英文版）",
+      "description": "面向海外客户/投资人的全英文产品矩阵演示文稿，涵盖 ArkSmart / Ark AI Suite / Ark Hub 等产品线",
+      "created": "2026-06-29"
+    },
+    "智能巡检": {
+      "name": "智能巡检解决方案",
+      "description": "",
+      "created": "2026-07-15"
+    },
+    "智能体重塑人与企业的协作边界": {
+      "name": "智能体重塑人与企业的协作边界",
+      "description": "面向企业主/CTO/EHS负责人的 AI 智能体平台商务演示，强调降本增效与ROI可量化",
+      "created": "2026-06-25"
+    },
     "CBAM": {
       "name": "CBAM 碳边境调节机制客户演示",
       "description": "向出口型制造企业高管介绍 CBAM 政策影响与应对策略的商务演示文稿",
