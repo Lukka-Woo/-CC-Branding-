@@ -895,56 +895,93 @@ def _brand_arrow(slide, x, y, size_mm=5.5, direction="right", style="primary"):
 
 def _render_content_with_arrows(slide, content, x, y, w, h,
                                   sz=14, color=None, ls_pt=22,
-                                  arrow_style="primary", arrow_size_mm=5.5):
+                                  arrow_style="primary", arrow_size_mm=5.5,
+                                  min_sz=9):
     """
-    Render free-form content string, replacing standalone '→ text' lines with
-    brand arrow PNG + bold text rows. Other lines rendered as normal text blocks.
+    Two-pass elastic renderer for free-form content with branded arrow bullets.
 
-    A 'standalone arrow line' is any line whose first non-space character is '→'.
-    Mid-sentence '→' (e.g. 'A → B') are NOT affected.
+    Pass 1 — measure only, no drawing:
+      Estimate total_h at default params, then progressively relax:
+        Stage 1: reduce inter-segment gap  Mm(1) → 0     (cheapest)
+        Stage 2: reduce line spacing       ls_pt → sz*1.1
+        Stage 3: reduce font size          sz    → min_sz (last resort)
+      All segments share the same final (sz, ls_pt, gap) so visual rhythm is uniform.
 
-    arrow_style: "primary" | "white"  (matches slide background tone)
-    arrow_size_mm: arrow icon square size in mm (default 5.5, matches 14pt line)
+    Pass 2 — render with computed params:
+      Each text box also gets TEXT_TO_FIT_SHAPE as a final safety net.
+
+    Standalone '→ text' lines → brand arrow PNG + bold label row.
+    Mid-sentence '→' (e.g. 'A → B') are left as plain text.
     """
     color = color or BT.NEUTRAL_700_HEX
     if not content:
         return
 
-    lines = content.split('\n')
+    TEXT_W_MM = w / 36000
     ARROW_SZ  = Mm(arrow_size_mm)
     ARROW_GAP = Mm(2.5)
-    LINE_H_MM = ls_pt * 0.353          # approx mm per text line
-    ROW_H     = Mm(max(arrow_size_mm + 1.5, LINE_H_MM))
-    TEXT_W_MM = w / 36000
 
-    # Group lines into sequential runs: ("text", joined_str) or ("arrow", text_after_arrow)
+    # ── Parse into runs ───────────────────────────────────────────────────────
     runs = []
     text_buf = []
-    for line in lines:
+    for line in content.split('\n'):
         if line.strip().startswith('→'):
             if text_buf:
                 runs.append(("text", '\n'.join(text_buf)))
                 text_buf = []
-            arrow_text = line.strip()[1:].lstrip()
-            runs.append(("arrow", arrow_text))
+            runs.append(("arrow", line.strip()[1:].lstrip()))
         else:
             text_buf.append(line)
     if text_buf:
         runs.append(("text", '\n'.join(text_buf)))
 
-    cur_y  = y
-    max_y  = y + h
+    # ── Pass 1: measure helper ────────────────────────────────────────────────
+    def _total_h(cur_sz, cur_ls, cur_gap):
+        row_h = Mm(max(arrow_size_mm + 1.5, cur_ls * 0.353))
+        total = 0
+        for kind, seg in runs:
+            if kind == "text":
+                total += Mm(_est_text_h_mm(seg, cur_sz, TEXT_W_MM, ls_pt=cur_ls))
+            else:
+                total += row_h + cur_gap
+        return total
+
+    # Elastic fitting — three stages
+    actual_sz  = sz
+    actual_ls  = ls_pt
+    actual_gap = Mm(1)
+
+    if _total_h(actual_sz, actual_ls, actual_gap) > h:
+        # Stage 1: compress inter-segment gap to zero
+        actual_gap = 0
+
+    if _total_h(actual_sz, actual_ls, actual_gap) > h:
+        # Stage 2: reduce line spacing proportionally (floor: sz × 1.1)
+        scale = h / _total_h(actual_sz, actual_ls, actual_gap)
+        actual_ls = max(actual_sz * 1.1, ls_pt * scale)
+
+    if _total_h(actual_sz, actual_ls, actual_gap) > h:
+        # Stage 3: reduce font size proportionally (floor: min_sz)
+        scale = h / _total_h(actual_sz, actual_ls, actual_gap)
+        actual_sz = max(min_sz, sz * scale)
+        actual_ls = max(actual_sz * 1.1, actual_ls * scale)
+
+    # ── Pass 2: render ────────────────────────────────────────────────────────
+    ROW_H = Mm(max(arrow_size_mm + 1.5, actual_ls * 0.353))
+    cur_y = y
+    max_y = y + h
 
     for kind, seg in runs:
-        if cur_y + Mm(3) > max_y:
+        if cur_y + Mm(2) > max_y:
             break
 
         if kind == "text":
-            block_h_mm = _est_text_h_mm(seg, sz, TEXT_W_MM, ls_pt=ls_pt)
+            block_h_mm = _est_text_h_mm(seg, actual_sz, TEXT_W_MM, ls_pt=actual_ls)
             block_h = min(Mm(block_h_mm), max_y - cur_y)
             if block_h > Mm(1.5):
-                _txb(slide, seg, l=x, t=cur_y, w=w, h=block_h,
-                     sz=sz, color=color, ls_pt=ls_pt)
+                tb = _txb(slide, seg, l=x, t=cur_y, w=w, h=block_h,
+                           sz=actual_sz, color=color, ls_pt=actual_ls)
+                tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
             cur_y += block_h
 
         elif kind == "arrow":
@@ -955,9 +992,10 @@ def _render_content_with_arrows(slide, content, x, y, w, h,
             text_w = w - ARROW_SZ - ARROW_GAP
             avail  = min(ROW_H, max_y - cur_y)
             if avail > Mm(2):
-                _txb(slide, seg, l=text_x, t=cur_y, w=text_w, h=avail,
-                     sz=sz, bold=True, color=color, ls_pt=ls_pt)
-            cur_y += ROW_H + Mm(1)
+                tb = _txb(slide, seg, l=text_x, t=cur_y, w=text_w, h=avail,
+                           sz=actual_sz, bold=True, color=color, ls_pt=actual_ls)
+                tb.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            cur_y += ROW_H + actual_gap
 
 
 def _render_card_inner(slide, layout, x, y, w, h, data, acc_color,
@@ -2920,7 +2958,8 @@ class BrandPptx:
         _footer(slide)
 
         top    = CONTENT_Y + Mm(5)
-        height = CONTENT_H - Mm(5)
+        _note_reserve = CALLOUT_H + Mm(4) if note else 0
+        height = CONTENT_H - Mm(5) - _note_reserve
 
         for i, (col_title, content) in enumerate([
             (left_title,  left_content),
