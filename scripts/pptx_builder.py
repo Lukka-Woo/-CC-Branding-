@@ -860,6 +860,40 @@ def _card(slide, l, t, w, h, bg=None, border=None, radius_mm=None):
     return s
 
 
+def _img_card(slide, img_path, l, t, w, h, margin_mm=2.5, radius_mm=None):
+    """Single-image frame: white rounded rect with gray border + image inside.
+
+    Use for standalone / isolated images. For multi-image collages (tiles that
+    share edges), call slide.shapes.add_picture() directly — no frame needed.
+
+    The frame is drawn first (lower z-order), then the image on top.
+    If img_path is None or the file doesn't exist, a placeholder rect is drawn.
+
+    margin_mm : gap between frame edge and image on each side (default 2.5mm).
+    radius_mm : corner radius of the frame; defaults to BT.RADIUS_SM_MM (4mm).
+    """
+    if radius_mm is None:
+        radius_mm = BT.RADIUS_SM_MM
+
+    # Frame: slightly larger than the image
+    m = Mm(margin_mm)
+    _card(slide, l=l - m, t=t - m, w=w + 2 * m, h=h + 2 * m,
+          bg=BT.WHITE_HEX, border=BT.BORDER_DEFAULT_HEX, radius_mm=radius_mm)
+
+    # Image (or placeholder)
+    import os as _os
+    if img_path and _os.path.exists(img_path):
+        slide.shapes.add_picture(img_path, int(l), int(t), int(w), int(h))
+    else:
+        # Placeholder: neutral fill + centered label
+        ph = slide.shapes.add_shape(1, int(l), int(t), int(w), int(h))
+        ph.fill.solid(); ph.fill.fore_color.rgb = _rgb(BT.NEUTRAL_100_HEX)
+        ph.line.fill.background()
+        _txb(slide, img_path.split('/')[-1] if img_path else '图片占位',
+             l=l, t=t + (h - Mm(6)) // 2, w=w, h=Mm(6),
+             sz=8, color=BT.NEUTRAL_400_HEX, align=PP_ALIGN.CENTER)
+
+
 def _is_numeric_val(s: str) -> bool:
     """True if value text is already a standalone number (e.g. '01', '8').
     When True, the sequence-number badge is suppressed to avoid duplication."""
