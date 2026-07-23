@@ -119,11 +119,12 @@ Then choose color variant by background:
 
 ## 审美规则速查
 
-- **主色**：智慧绿（详见 `tokens.json`）——象征 AI 与可持续发展的交集
-- **辅助色**：安全蓝 —— 传递信任与数据安全
-- **字体**：Inter（英文）+ Noto Sans SC（中文）+ JetBrains Mono（代码）
+- **主色**：智慧绿（`colors.primary`）—— 象征 AI 与可持续发展的交集
+- **辅助色**：黄绿色（`colors.secondary`，非蓝色）—— 传递创新与机遇；`colors.supplement.blue` 仅作图表/补充色，不是辅助色
+- **字体**：具体字体族见 `reference/brand-values.md`（唯一数据源 `tokens.json`，此处不重复罗列避免漂移）
 - **图形**：仅使用圆角矩形（rounded corners 一致）、极细线框、几何噪声背景
 - **插图**：抽象几何构成，不使用具象人物/物体插画
 
 > 各模板的具体实现以对应文件为准，本规范不做重复详述。
+> 具体数值一律见 `reference/brand-values.md`（自动生成，勿手改）。
 

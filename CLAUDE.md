@@ -198,39 +198,16 @@ prs.add_timeline(
 
 ## 核心数值（禁止硬编码其他值）
 
-### 颜色
+具体色值 / 字体族 / DOCX 页面数值**不在本文件重复罗列**——唯一数据源是 `tokens.json`
+（经 `scripts/brand_tokens.py` 加载）。当前生效的完整数值表见自动生成文件：
 
-```
-主绿    #3EC99E  — 标题、强调、Logo、表格 Header
-主绿深  #4B9E31  — Hover / 深色变体
-主绿浅  #EAFAF5  — 卡片背景、交替行
-辅色    #C8E13C  — 次级强调、Badge
-中性900 #0E1216  — 正文标题
-中性700 #3D444A  — 正文文字
-中性400 #8A9199  — 说明文字、Footer
-中性200 #D0D5DD  — 边框、分隔线
-中性100 #F2F3F5  — 斑马纹、Note 背景
-白色    #FFFFFF  — 页面背景、反白文字
-```
+**`reference/brand-values.md`**
+
+修改 `tokens.json` 后运行一次 `python3 scripts/gen_brand_reference.py` 重新生成，
+确保文档数值与实际渲染值始终一致，不会像手工维护的表格那样悄悄漂移。
 
 所有颜色常量通过 `import scripts.brand_tokens as BT` 使用，禁止在脚本中内联十六进制。
-
-### 字体
-
-```
-中文：Alibaba PuHuiTi 2.0 / PingFang SC / Microsoft YaHei / Noto Sans SC
-英文：Inter / SF Pro
-代码：JetBrains Mono
-```
-
-PPTX/DOCX 写字体名 `"Alibaba PuHuiTi 2.0"`；HTML/PDF 通过 `@font-face` 加载本地文件（`fonts/alibaba-puhuiti/`）。
-
-### DOCX 页面（A4）
-
-```
-上下边距：25.4mm   左右边距：31.7mm
-H1：28pt #0E1216   H2：22pt #0E1216   H3：18pt #3EC99E
-```
+PPTX/DOCX 写字体名固定引用 `BT.FONT_CN` / `BT.FONT_EN`；HTML/PDF 通过 `@font-face` 加载本地文件（`fonts/alibaba-puhuiti/`）。
 
 ---
 
@@ -316,17 +293,19 @@ subtitle="运营挑战 · 行业趋势 · 核心优势与资质"  ← ❌ 缺解
 ### 卡片颜色语义（全系统统一）
 
 适用于 `add_three_cards`、`add_six_cards`、`add_big_stats`、`add_module_grid`。
+本表只定义**角色 → 语义 → 优先级**的映射规则（模型/品牌无关，换品牌也不用改这张表）；
+具体色值见 `reference/brand-values.md`。
 
-| 底色 | Accent 色 | 语义 | 优先级 |
+| 底色角色 | Accent 角色 | 语义 | 优先级 |
 |---|---|---|---|
-| `#EAFAF5` PRIMARY_100 | `#3EC99E` PRIMARY_500 | 标准/主要特性 | ★★★ |
-| `#F2F3F5` NEUTRAL_100 | `#5CC13C` SUCCESS | 安全/补充/次要 | ★★★ |
-| `#F8FBE7` SECONDARY_100 | `#C8E13C` SECONDARY_500 | 创新/机遇 | ★★★ |
-| `#FFF1DF` CARD_ORANGE_BG | `#FFB928` WARNING | 高风险/注意 | ★★★ |
-| `#E0F7FA` CARD_TEAL_BG | `#3CC5CF` TEAL | 扩展/生态 | ★★ |
-| `#F0E8FF` CARD_PURPLE_BG | `#8255E1` PURPLE | 战略/特殊 | ★★ |
-| `#0E1216` NEUTRAL_900 | `#C8E13C` + 白字 | **突出/亮点**（非危险） | ★★★ 深色卡 |
-| `#FFF2F2` CARD_DANGER_BG | `#F12D2D` DANGER | **危险/风险**（确实危险才用） | ★ 慎用 |
+| PRIMARY_100 | PRIMARY_500 | 标准/主要特性 | ★★★ |
+| NEUTRAL_100 | SUCCESS | 安全/补充/次要 | ★★★ |
+| SECONDARY_100 | SECONDARY_500 | 创新/机遇 | ★★★ |
+| CARD_ORANGE_BG | WARNING | 高风险/注意 | ★★★ |
+| CARD_TEAL_BG | TEAL | 扩展/生态 | ★★ |
+| CARD_PURPLE_BG | PURPLE | 战略/特殊 | ★★ |
+| NEUTRAL_900 | SECONDARY_500 + 白字 | **突出/亮点**（非危险） | ★★★ 深色卡 |
+| CARD_DANGER_BG | DANGER | **危险/风险**（确实危险才用） | ★ 慎用 |
 
 **深色卡 hard rule：**
 - 卡片数 < 5（三卡版式）：**禁止**深色卡（三卡已自动屏蔽）
@@ -695,6 +674,7 @@ python3 tests/test_compliance.py projects/{name}/docs/output.html --format html
 | bilingual 模式同时传 `subtitle=` 参数 | title dict 的 "en" 已占用 subtitle 槽，两者冲突时 EN 覆盖传入值 |
 | 版式 slot 数量决定内容点数量 | 必须先从 references 确定 N，再选适合 N 的 preset；不得反向截断 |
 | 为了"版面整洁"合并不同概念进同一卡片/条目 | 可精简语言，不可合并概念；内容完整性是红线 |
+| 在 CLAUDE.md / brand_system.md 中手写具体色值、字体名等数值 | 会与 `tokens.json` 产生漂移（已发生过）；规则只写角色名，数值统一见 `reference/brand-values.md` |
 
 ---
 
@@ -702,3 +682,4 @@ python3 tests/test_compliance.py projects/{name}/docs/output.html --format html
 
 - `reference/pptx-api.md` — Pill 样式表、`_pill()` 参数、`intro_flow` 详情、`_callout()` 参数、`title_deco` 参数 + 示例、PDF Puppeteer 脚本
 - `reference/setup-guide.md` — 新建项目步骤、context.md 模板、品牌定制指南
+- `reference/brand-values.md` — **自动生成**的色值/字体/页面数值表，唯一数据源 `tokens.json`；改值后运行 `python3 scripts/gen_brand_reference.py` 重新生成
