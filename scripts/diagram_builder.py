@@ -311,6 +311,73 @@ def arrow_L_v(slide, x1, y1, corner_x, corner_y, color, corner_mm=3.0, **kw):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Fixed design asset: merge / split manifold
+#
+# N source points converging into (or fanning out from) a single trunk —
+# e.g. "three inputs → one hub" or "one hub → three outputs". The branch
+# that already shares the trunk's y is drawn straight; every other branch
+# bends toward the trunk row via ONE rounded elbow (corner_mm, defaults to
+# BT.RADIUS_SM_MM — the brand's card corner radius) so multi-branch arrows
+# read as part of the same rounded-corner visual system as cards, instead
+# of sharp 90° T-junctions. Reuse these instead of hand-rolling arrow loops.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def merge_arrows(slide, points, target, color,
+                 spine_x=None, width_pt=1.0, trunk_width_pt=2.0,
+                 corner_mm=None, gap_mm=1.5):
+    """
+    Converge multiple source points into one trunk arrow ending at `target`.
+
+    points : [(x, y), ...] source edge points (one must share target's y —
+              that branch is the trunk row, drawn straight; the rest bend
+              toward it with a rounded elbow).
+    target : (x, y) — trunk arrow lands here with an arrowhead.
+    spine_x: x where branches converge; defaults to the midpoint between the
+             source points and target.
+    """
+    corner_mm = BT.RADIUS_SM_MM if corner_mm is None else corner_mm
+    tx, ty = target
+    if spine_x is None:
+        spine_x = (max(p[0] for p in points) + tx) / 2
+    gap = Mm(gap_mm)
+
+    trunk_src = None
+    for (px, py) in points:
+        if py == ty:
+            trunk_src = (px, py)
+            continue
+        orth_line(slide, [(px + gap, py), (spine_x, py), (spine_x, ty)],
+                  color, width_pt=width_pt, corner_mm=corner_mm)
+
+    if trunk_src is not None:
+        orth_line(slide, [(trunk_src[0] + gap, ty), (spine_x, ty)],
+                  color, width_pt=width_pt)
+
+    arrow_right(slide, spine_x, ty, tx - spine_x - gap, color, width_pt=trunk_width_pt)
+
+
+def split_arrows(slide, source, points, color,
+                 spine_x=None, width_pt=1.0, trunk_width_pt=2.0,
+                 corner_mm=None, gap_mm=1.5):
+    """Mirror of merge_arrows: one trunk from `source` fans out into branch
+    arrows (each with an arrowhead) ending at `points`."""
+    corner_mm = BT.RADIUS_SM_MM if corner_mm is None else corner_mm
+    sx, sy = source
+    if spine_x is None:
+        spine_x = (sx + min(p[0] for p in points)) / 2
+    gap = Mm(gap_mm)
+
+    orth_line(slide, [(sx + gap, sy), (spine_x, sy)], color, width_pt=trunk_width_pt)
+
+    for (px, py) in points:
+        if py == sy:
+            arrow_right(slide, spine_x, sy, px - spine_x - gap, color, width_pt=width_pt)
+        else:
+            orth_arrow(slide, [(spine_x, sy), (spine_x, py), (px - gap, py)],
+                      color, width_pt=width_pt, corner_mm=corner_mm)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Decorative markers
 # ─────────────────────────────────────────────────────────────────────────────
 

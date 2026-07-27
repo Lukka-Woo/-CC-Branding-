@@ -116,6 +116,75 @@ def _est_text_h_mm(text: str, sz_pt: float, w_mm: float, ls_pt: float = None) ->
     return total_lines * ls * 0.353 + 2.0  # +2 mm for PPTX default top+bottom inset
 
 
+def auto_group_width_mm(field_specs, max_width_mm, page_ref_mm=None,
+                        min_ratio=0.25, side_pad_mm=15.0, buffer=1.15):
+    """Shared card width (mm) for a row of related cards.
+
+    Fixed design rule: related cards (e.g. one column of a 3-card flow) must
+    all share ONE width, not each hug its own text — otherwise the row reads
+    as uneven instead of a deliberate group. A card typically renders more
+    than one text ROLE (title, description, ...), each at its own font size
+    and its own acceptable wrap depth — the group width must satisfy the
+    WIDEST requirement across every role and every card, not just whichever
+    field happens to be measured. Measuring only one role (e.g. only the
+    description) silently starves a title/label field that turns out to be
+    the real bottleneck, producing a cramped, over-wrapped card.
+
+    field_specs : [(texts, sz_pt, target_lines), ...] — one entry per text
+        role. `texts` is that role's strings across all cards in the group;
+        the role's required width uses only its OWN longest string, at its
+        OWN font size, wrapped to `target_lines` (same char-width model as
+        `_est_text_h_mm`).
+    max_width_mm : layout ceiling for this column (e.g. an equal N-way
+        division of the usable page width). Content narrower than this
+        leaves the difference as whitespace rather than stretching the card.
+    page_ref_mm  : total usable width the layout is divided across, used for
+        the min-width floor below. Defaults to `max_width_mm * 3` (assumes a
+        roughly-thirds layout) when not given.
+    min_ratio    : floor, as a fraction of `page_ref_mm` (default 1/4). If
+        content alone would make the group narrower than this, the result
+        reads as an isolated sliver next to a dead vacuum rather than a
+        deliberate column — so the width snaps up to the floor.
+
+    Returns (width_mm, hit_floor). When hit_floor is True, the caller should
+    switch that group's placement from edge-flush to CENTERED within its
+    nominal column slot — flush-edge only makes sense when content genuinely
+    earns most of its column; a floor-padded group centers instead so the
+    padding reads as deliberate margin, not an accidental lean to one side.
+
+    side_pad_mm: horizontal space outside the text itself (icon zone + margins).
+    Card auto_size=TEXT_TO_FIT_SHAPE absorbs any estimation error by shrinking
+    the font, so this only needs to be approximately right.
+
+    Note — inter-card gap compensation: for a HORIZONTAL row of sibling cards
+    (add_three_cards / add_six_cards-style, each card independently placed),
+    prefer growing the gap between cards over shrinking below this floor, so
+    the row still spans corner-to-corner. This function does not do that
+    itself — it has no opinion on gap — because a VERTICAL stack whose
+    siblings must line up with cross-column arrows (e.g. a merge/split
+    manifold) cannot vary its inter-card gap independently per column without
+    breaking that arrow alignment; only the caller knows which case applies.
+    """
+    needed = 0.0
+    for texts, sz_pt, target_lines in field_specs:
+        longest = max((t or '' for t in texts), key=len, default='')
+        n = len(longest.strip())
+        if not n:
+            continue
+        char_w = sz_pt * 0.353 * 0.85
+        chars_per_line = math.ceil(n / target_lines)
+        needed = max(needed, chars_per_line * char_w * buffer)
+
+    w = min(needed + side_pad_mm, max_width_mm)
+
+    page_ref_mm = page_ref_mm if page_ref_mm is not None else max_width_mm * 3
+    floor = page_ref_mm * min_ratio
+    hit_floor = w < floor
+    if hit_floor:
+        w = floor
+    return w, hit_floor
+
+
 # ── Slide dimensions (16:9) ───────────────────────────────────────────────────
 SLIDE_W = Inches(13.33)
 SLIDE_H = Inches(7.5)
@@ -803,9 +872,24 @@ def _header(slide, title, subtitle="", label="", title_deco=None):
     if label:
         _txb(slide, label, l=ML, t=Mm(4.5), w=Mm(80), h=Mm(6),
              sz=9, color=BT.PRIMARY_500_HEX)
-    _txb(slide, display_title, l=ML, t=y_title, w=title_w, h=Mm(18),
+
+    # Title box "hug": the old fixed h=Mm(18) had nothing to do with the text's
+    # actual rendered height, so the subtitle's OWN position was pinned to an
+    # unrelated hardcoded offset (27/24mm) instead of the title's real bottom —
+    # the two silently drifted apart, reading as a too-wide gap even though the
+    # boxes were technically adjacent. Fix: derive both the box height AND the
+    # subtitle offset from the SAME line-height constant (26pt × 0.353 × 1.1)
+    # already used — and validated — by _apply_title_deco's underline placement
+    # below, instead of _est_text_h_mm's generic 1.4× body-text default (which
+    # overshoots for a bold single-line heading). ls_pt is also set on the
+    # actual run so the real render matches this estimate, not a font default.
+    TITLE_LS_PT = 26 * 1.1
+    title_w_mm  = title_w / 36000.0
+    title_h_mm  = _est_text_h_mm(display_title, 26, title_w_mm, ls_pt=TITLE_LS_PT)
+    _txb(slide, display_title, l=ML, t=y_title, w=title_w, h=Mm(title_h_mm),
          sz=26, bold=True, color=BT.NEUTRAL_900_HEX,
-         wrap=not is_en_only)   # EN: single-line, no wrap
+         wrap=not is_en_only, ls_pt=TITLE_LS_PT)   # EN: single-line, no wrap
+    title_bottom_mm = y_title_mm + (title_h_mm - 2.0)   # strip _est_text_h_mm's box-fit inset → true visual bottom
 
     # Bilingual: EN from title dict takes the subtitle slot (overrides passed subtitle)
     if is_bilingual:
@@ -813,20 +897,29 @@ def _header(slide, title, subtitle="", label="", title_deco=None):
     else:
         effective_subtitle = subtitle
 
+    # Clamp to the old fixed offsets as a ceiling: hugging only ever pulls the
+    # subtitle/divider UP for short titles, never pushes it down past what the
+    # fixed-budget CONTENT_Y (content area starts at Mm(36) regardless of header
+    # height) was already validated against — a wrapped 2-line title would
+    # otherwise push the subtitle past CONTENT_Y and overlap the body content.
+    TITLE_SUBTITLE_GAP_MM = 3.0
+    subtitle_t_mm = min(title_bottom_mm + TITLE_SUBTITLE_GAP_MM,
+                        27.0 if label else 24.0)
+    divider_t_mm = min(title_bottom_mm + 5.0, 30.0 if label else 25.0)
+
     if title_deco:
         # Compute anchor bounds so circle can be vertically centered between
         # label-bottom and subtitle-top (equal gap above and below).
         _anchor_top = (4.5 + 6.0) if label else y_title_mm
-        _anchor_bot = (27.0 if label else 24.0) if effective_subtitle else (30.0 if label else 25.0)
+        _anchor_bot = subtitle_t_mm if effective_subtitle else divider_t_mm
         _apply_title_deco(slide, title_deco, y_title_mm=y_title_mm,
                           anchor_top_mm=_anchor_top, anchor_bot_mm=_anchor_bot)
     if effective_subtitle:
-        _txb(slide, effective_subtitle, l=ML, t=Mm(24 if not label else 27),
+        _txb(slide, effective_subtitle, l=ML, t=Mm(subtitle_t_mm),
              w=CW * 0.80, h=Mm(9), sz=12, color=BT.NEUTRAL_400_HEX)
     else:
         # No subtitle: thin gray divider below title
-        _t = Mm(30) if label else Mm(25)
-        _rect(slide, l=ML, t=_t, w=CW, h=Mm(0.3),
+        _rect(slide, l=ML, t=Mm(divider_t_mm), w=CW, h=Mm(0.3),
               fill=BT.NEUTRAL_200_HEX)
 
 
